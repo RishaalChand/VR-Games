@@ -2,32 +2,91 @@
 <html>
 <head>
   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+
+  <!-- Add cursor + click events -->
+  <script>
+    AFRAME.registerComponent('click-alert', {
+      init: function () {
+        this.el.addEventListener('click', () => {
+          alert('You clicked: ' + this.el.id);
+        });
+      }
+    });
+  </script>
 </head>
 
 <body>
   <a-scene>
 
-    <!-- Camera so the user can look around -->
-    <a-entity camera position="0 1.6 0"></a-entity>
+    <!-- Player with WASD movement + mouse look -->
+    <a-entity 
+      id="player"
+      camera
+      wasd-controls
+      look-controls
+      position="0 1.6 0">
+    </a-entity>
 
+    <!-- Table -->
     <a-box
-      position="-1 1 -3"
-      color="red">
+      id="table"
+      position="0 0.75 -3"
+      width="2"
+      height="0.5"
+      depth="1"
+      color="#8B4513"
+      click-alert>
     </a-box>
 
+    <!-- Bench -->
+    <a-box
+      id="bench"
+      position="-2 0.5 -3"
+      width="1.5"
+      height="0.4"
+      depth="0.6"
+      color="#654321"
+      click-alert>
+    </a-box>
+
+    <!-- Secret Book -->
+    <a-box
+      id="secret-book"
+      position="0.3 1.2 -3"
+      width="0.3"
+      height="0.1"
+      depth="0.4"
+      color="green"
+      click-alert>
+    </a-box>
+
+    <!-- Red Box -->
+    <a-box
+      id="red-box"
+      position="-1 1 -3"
+      color="red"
+      click-alert>
+    </a-box>
+
+    <!-- Blue Sphere -->
     <a-sphere
+      id="blue-sphere"
       position="1 1 -4"
-      color="blue">
+      color="blue"
+      radius="0.7"
+      click-alert>
     </a-sphere>
 
+    <!-- Floor -->
     <a-plane
       position="0 0 -4"
       rotation="-90 0 0"
-      width="10"
-      height="10"
+      width="20"
+      height="20"
       color="#DDDDDD">
     </a-plane>
 
+    <!-- Sky -->
     <a-sky color="#EEEEEE"></a-sky>
 
   </a-scene>
