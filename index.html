@@ -376,10 +376,10 @@
     </div>
   </div>
 
-  <a-scene embedded class="w-full h-screen">
+  <a-scene embedded class="w-full h-screen" loading-screen="enabled: false" renderer="colorManagement: true;">
 
     <!-- Assets Definition -->
-    <a-assets>
+    <a-assets timeout="1000">
       <a-mixin id="wood-color" material="color: #8B4513; roughness: 0.8"></a-mixin>
       <a-mixin id="wall-color" material="color: #2c3e50; roughness: 0.9"></a-mixin>
     </a-assets>
