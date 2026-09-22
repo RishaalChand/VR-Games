@@ -1,131 +1,509 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Escape Room Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Escape Room VR - The Mystery Chamber</title>
+
   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* Custom style overlay rules for the HUD and Keypad UI overlay */
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+    }
+    .custom-modal {
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(8px);
+    }
+  </style>
 
   <script>
-    // Click handler for all clickable objects.
+    // Simple Web Audio API Synthesizer for VR interactions (No external audio file dependencies)
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      playClick() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.05);
+      },
+      playPickup() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.15);
+      },
+      playUnlock() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now); // C5
+        osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+        osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.4);
+      },
+      playError() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.setValueAtTime(110, now + 0.1);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.25);
+      }
+    };
+
+    const GameState = {
+      inventory: [], // Dynamic array of picked up items
+      hasBookNote: false,
+      hasKey: false,
+      redBoxUnlocked: false,
+      doorUnlocked: false,
+      code: "7429", // Door Code found in clues
+
+      addItem(item) {
+        if (!this.inventory.includes(item)) {
+          this.inventory.push(item);
+          AudioEngine.playPickup();
+          this.updateInventoryUI();
+          return true;
+        }
+        return false;
+      },
+
+      updateInventoryUI() {
+        const list = document.getElementById('inventory-list');
+        if (!list) return;
+        if (this.inventory.length === 0) {
+          list.innerHTML = `<span class="text-slate-400 italic text-sm">Empty</span>`;
+          return;
+        }
+        list.innerHTML = this.inventory.map(item => 
+          `<span class="bg-indigo-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow">${item}</span>`
+        ).join('');
+      }
+    };
+
+
+    // Fixed & Enhanced Click Message Component
     AFRAME.registerComponent('click-message', {
-      schema: { text: { type: 'string', default: '' } },
+      schema: {
+        text: { type: 'string', default: '' },
+        duration: { type: 'number', default: 3000 }
+      },
       init: function () {
-        let timer;
-        this.el.addEventListener('click', () => {
-          const hud = document.querySelector('#hud');
-          hud.setAttribute('value', this.data.text || ('You clicked: ' + this.el.id));
-          clearTimeout(timer);
-          timer = setTimeout(() => hud.setAttribute('value', ''), 2000);
+        this.timer = null;
+        this.el.addEventListener('click', (e) => {
+          AudioEngine.playClick();
+          const textToShow = this.data.text || ('You interacted with: ' + (this.el.id || 'an object'));
+          showHUDMessage(textToShow, this.data.duration);
         });
       }
     });
+
+    // Interactive Keypad Modal Trigger Component
+    AFRAME.registerComponent('keypad-trigger', {
+      schema: {
+        type: { type: 'string', default: 'door' } // 'door' or 'redbox'
+      },
+      init: function () {
+        this.el.addEventListener('click', () => {
+          AudioEngine.playClick();
+          if (this.data.type === 'door') {
+            openDoorKeypadModal();
+          } else if (this.data.type === 'redbox') {
+            inspectRedBox();
+          }
+        });
+      }
+    });
+
+    // Pickup Item Component
+    AFRAME.registerComponent('pickup-item', {
+      schema: {
+        itemName: { type: 'string', default: 'Item' },
+        message: { type: 'string', default: 'Picked up item!' }
+      },
+      init: function () {
+        this.el.addEventListener('click', () => {
+          if (GameState.addItem(this.data.itemName)) {
+            showHUDMessage(this.data.message);
+            // Hide object from 3D world after picking up
+            this.el.setAttribute('visible', 'false');
+            this.el.classList.remove('clickable');
+          }
+        });
+      }
+    });
+
+    // Global HUD Message Function
+    let hudTimer = null;
+    function showHUDMessage(msg, duration = 3000) {
+      // 3D VR HUD Text
+      const vrHud = document.querySelector('#vr-hud-text');
+      if (vrHud) {
+        vrHud.setAttribute('value', msg);
+      }
+
+      // Screen Overlay HUD
+      const overlayHud = document.getElementById('screen-hud');
+      const overlayText = document.getElementById('screen-hud-text');
+      if (overlayHud && overlayText) {
+        overlayText.innerText = msg;
+        overlayHud.classList.remove('opacity-0', 'pointer-events-none');
+        overlayHud.classList.add('opacity-100');
+
+        clearTimeout(hudTimer);
+        hudTimer = setTimeout(() => {
+          overlayHud.classList.remove('opacity-100');
+          overlayHud.classList.add('opacity-0', 'pointer-events-none');
+          if (vrHud) vrHud.setAttribute('value', '');
+        }, duration);
+      }
+    }
+
+    let currentInputCode = "";
+
+    function openDoorKeypadModal() {
+      if (GameState.doorUnlocked) {
+        showHUDMessage("The door is already unlocked! Click the handle to exit!");
+        return;
+      }
+      currentInputCode = "";
+      updateKeypadDisplay();
+      document.getElementById('keypad-modal').classList.remove('hidden');
+    }
+
+    function closeKeypadModal() {
+      document.getElementById('keypad-modal').classList.add('hidden');
+    }
+
+    function pressKeypadDigit(digit) {
+      AudioEngine.playClick();
+      if (currentInputCode.length < 4) {
+        currentInputCode += digit;
+        updateKeypadDisplay();
+      }
+    }
+
+    function clearKeypadCode() {
+      AudioEngine.playClick();
+      currentInputCode = "";
+      updateKeypadDisplay();
+    }
+
+    function updateKeypadDisplay() {
+      const display = document.getElementById('keypad-display');
+      if (display) {
+        display.innerText = currentInputCode.padEnd(4, '_');
+      }
+    }
+
+    function submitKeypadCode() {
+      if (currentInputCode === GameState.code) {
+        AudioEngine.playUnlock();
+        GameState.doorUnlocked = true;
+        closeKeypadModal();
+        showHUDMessage("Door Unlocked! Click the door to ESCAPE!");
+        
+        // Animate door open
+        const door = document.getElementById('door-mesh');
+        if (door) {
+          door.setAttribute('animation', 'property: rotation; to: 0 -90 0; dur: 1500; easing: easeOutQuad');
+          door.setAttribute('click-message', 'text: You escaped! CONGRATULATIONS!');
+          door.addEventListener('click', triggerVictory);
+        }
+      } else {
+        AudioEngine.playError();
+        showHUDMessage("Access Denied! Incorrect Passcode.");
+        currentInputCode = "";
+        updateKeypadDisplay();
+      }
+    }
+
+    function inspectRedBox() {
+      if (!GameState.redBoxUnlocked) {
+        if (GameState.inventory.includes("Brass Key")) {
+          AudioEngine.playUnlock();
+          GameState.redBoxUnlocked = true;
+          showHUDMessage("You used the Brass Key to unlock the Red Box! Inside you find a note with numbers: '...29'");
+          const redBoxTop = document.getElementById('red-box-lid');
+          if (redBoxTop) {
+            redBoxTop.setAttribute('animation', 'property: rotation; to: -110 0 0; dur: 1000');
+          }
+          GameState.addItem("Keypad Clue B");
+        } else {
+          AudioEngine.playError();
+          showHUDMessage("The Red Box is securely locked. It requires a small Brass Key.");
+        }
+      } else {
+        showHUDMessage("The Red Box is open. It contained Clue B ('...29').");
+      }
+    }
+
+    function triggerVictory() {
+      AudioEngine.playUnlock();
+      document.getElementById('victory-modal').classList.remove('hidden');
+    }
   </script>
 </head>
 
-<body>
-  <a-scene>
+<body class="bg-slate-900 text-slate-100 select-none overflow-hidden">
 
-    <!-- CAMERA RIG (correct height) -->
+  <!-- 2D Overlay HUD (Desktop / Mobile Friendly) -->
+  <div id="ui-container" class="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-4">
+    
+    <!-- Header / Objective Banner -->
+    <div class="flex justify-between items-start">
+      <div class="bg-slate-800/80 backdrop-blur-md p-3 rounded-xl border border-slate-700 shadow-lg pointer-events-auto max-w-sm">
+        <h1 class="text-base font-bold text-amber-400 flex items-center gap-2">
+          <span>🗝️</span> Escape Room VR
+        </h1>
+        <p id="objective-text" class="text-xs text-slate-300 mt-1">
+          Find clues, inspect objects, and discover the 4-digit combination code to unlock the exit door!
+        </p>
+      </div>
+
+      <!-- Inventory Bar -->
+      <div class="bg-slate-800/80 backdrop-blur-md p-3 rounded-xl border border-slate-700 shadow-lg pointer-events-auto min-w-[160px]">
+        <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Inventory</div>
+        <div id="inventory-list" class="flex flex-wrap gap-1">
+          <span class="text-slate-400 italic text-sm">Empty</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center HUD Text Banner -->
+    <div id="screen-hud" class="self-center bg-slate-900/90 text-amber-300 font-medium px-6 py-3 rounded-full border border-amber-500/30 shadow-2xl transition-opacity duration-300 opacity-0 pointer-events-none text-center max-w-md">
+      <span id="screen-hud-text">Welcome to the Mystery Chamber</span>
+    </div>
+
+    <!-- Help Controls Footer -->
+    <div class="bg-slate-800/80 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-700 text-xs text-slate-400 self-center pointer-events-auto shadow-md text-center">
+      🖥️ <b>WASD</b> to move | Drag mouse to look around | Click objects to interact
+    </div>
+  </div>
+
+  <!-- Exit Door Electronic Keypad Modal -->
+  <div id="keypad-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center custom-modal p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-xs shadow-2xl text-center">
+      <h2 class="text-lg font-bold text-slate-100 mb-1">Door Security Keypad</h2>
+      <p class="text-xs text-slate-400 mb-4">Enter 4-Digit Security Passcode</p>
+      
+      <!-- Keypad Screen -->
+      <div id="keypad-display" class="bg-slate-950 font-mono text-2xl tracking-[0.3em] text-emerald-400 py-3 rounded-lg mb-4 border border-slate-800 shadow-inner">
+        ____
+      </div>
+
+      <!-- Keypad Grid -->
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button onclick="pressKeypadDigit('1')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">1</button>
+        <button onclick="pressKeypadDigit('2')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">2</button>
+        <button onclick="pressKeypadDigit('3')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">3</button>
+        <button onclick="pressKeypadDigit('4')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">4</button>
+        <button onclick="pressKeypadDigit('5')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">5</button>
+        <button onclick="pressKeypadDigit('6')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">6</button>
+        <button onclick="pressKeypadDigit('7')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">7</button>
+        <button onclick="pressKeypadDigit('8')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">8</button>
+        <button onclick="pressKeypadDigit('9')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">9</button>
+        <button onclick="clearKeypadCode()" class="bg-rose-900/60 hover:bg-rose-800 text-rose-200 font-bold py-3 rounded-lg text-sm transition">CLR</button>
+        <button onclick="pressKeypadDigit('0')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">0</button>
+        <button onclick="submitKeypadCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg text-sm transition">OK</button>
+      </div>
+
+      <button onclick="closeKeypadModal()" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-lg text-xs font-semibold">
+        Cancel / Back
+      </button>
+    </div>
+  </div>
+
+  <!-- Victory Overlay Modal -->
+  <div id="victory-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center custom-modal p-4">
+    <div class="bg-slate-800 border border-emerald-500/50 rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
+      <div class="text-5xl mb-3">🎉</div>
+      <h2 class="text-2xl font-black text-amber-400 mb-2">YOU ESCAPED!</h2>
+      <p class="text-sm text-slate-300 mb-6">You solved all the room's mysteries and safely unlocked the exit door.</p>
+      <button onclick="window.location.reload()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl shadow-lg transition">
+        Play Again
+      </button>
+    </div>
+  </div>
+
+  <a-scene embedded class="w-full h-screen">
+
+    <!-- Assets Definition -->
+    <a-assets>
+      <a-mixin id="wood-color" material="color: #8B4513; roughness: 0.8"></a-mixin>
+      <a-mixin id="wall-color" material="color: #2c3e50; roughness: 0.9"></a-mixin>
+    </a-assets>
+
+    <!-- Ambient & Spot Lighting -->
+    <a-entity light="type: ambient; color: #78909c; intensity: 0.6"></a-entity>
+    <a-entity light="type: spotlight; color: #ffebd2; intensity: 1.2; angle: 45; penumbra: 0.3" position="0 3.8 -2" rotation="-90 0 0"></a-entity>
+    <a-entity light="type: point; color: #ffaa55; intensity: 0.8; distance: 6" position="0 2 -1"></a-entity>
+
+    <!-- Camera / Player Setup with Unified Raycaster -->
     <a-entity id="rig" position="0 0 2">
-      <a-entity camera look-controls wasd-controls>
-        
-        <!-- Cursor -->
+      <a-entity camera look-controls wasd-controls position="0 1.6 0">
+        <!-- Interactive Cursor / Raycaster -->
         <a-entity
-          cursor="fuse: false"
-          raycaster="objects: .clickable"
-          position="0 0 -1"
-          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-          material="color: black; shader: flat">
+          cursor="rayOrigin: mouse"
+          raycaster="objects: .clickable; interval: 100"
+          geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.018"
+          material="color: #ffca28; shader: flat; opacity: 0.8"
+          position="0 0 -1">
         </a-entity>
 
-        <!-- HUD TEXT (moved further away to avoid distortion) -->
+        <!-- 3D VR Text HUD -->
         <a-text
-          id="hud"
+          id="vr-hud-text"
           value=""
           align="center"
-          color="#111"
-          width="2"
-          position="0 -0.4 -1.5">
+          color="#FFE082"
+          width="2.5"
+          position="0 -0.4 -1.2">
         </a-text>
-
       </a-entity>
+
+      <!-- Laser Controller Hand Support for VR Headsets -->
+      <a-entity laser-controls="hand: right" raycaster="objects: .clickable"></a-entity>
+      <a-entity laser-controls="hand: left" raycaster="objects: .clickable"></a-entity>
     </a-entity>
 
-    <!-- FLOOR -->
-    <a-plane
-      position="0 0 0"
-      rotation="-90 0 0"
-      width="20"
-      height="20"
-      color="#CCCCCC">
-    </a-plane>
+    <!-- Room Floor -->
+    <a-plane position="0 0 0" rotation="-90 0 0" width="8" height="8" color="#3e2723" material="roughness: 0.7"></a-plane>
+    <!-- Room Ceiling -->
+    <a-plane position="0 4 0" rotation="90 0 0" width="8" height="8" color="#1a237e"></a-plane>
 
-    <!-- TABLE (correct height: 0.8 total) -->
-    <a-box
-      id="table"
-      class="clickable"
-      position="0 0.8 -3"
-      width="2"
-      height="0.1"
-      depth="1"
-      color="#8B4513"
-      click-message>
+    <!-- Enclosing Walls -->
+    <!-- Back Wall (North) -->
+    <a-plane position="0 2 -4" rotation="0 0 0" width="8" height="4" mixin="wall-color"></a-plane>
+    <!-- Front Wall (South) -->
+    <a-plane position="0 2 4" rotation="0 180 0" width="8" height="4" mixin="wall-color"></a-plane>
+    <!-- Left Wall (West) -->
+    <a-plane position="-4 2 0" rotation="0 90 0" width="8" height="4" mixin="wall-color"></a-plane>
+    <!-- Right Wall (East) -->
+    <a-plane position="4 2 0" rotation="0 -90 0" width="8" height="4" mixin="wall-color"></a-plane>
+
+    <!-- Ceiling Lamp Fixture -->
+    <a-cylinder position="0 3.9 -2" radius="0.3" height="0.1" color="#111111"></a-cylinder>
+    <a-cone position="0 3.6 -2" radius-top="0.1" radius-bottom="0.4" height="0.3" color="#333333"></a-cone>
+
+    <!-- Main Center Table -->
+    <a-box id="table" class="clickable" position="0 0.8 -2.5" width="2" height="0.1" depth="1.2" color="#5d4037" click-message="text: A sturdy wooden study table. Let's inspect the objects on top.">
+    </a-box>
+    <!-- Table Legs -->
+    <a-box position="-0.9 0.4 -3.0" width="0.1" height="0.7" depth="0.1" color="#3e2723"></a-box>
+    <a-box position="0.9 0.4 -3.0" width="0.1" height="0.7" depth="0.1" color="#3e2723"></a-box>
+    <a-box position="-0.9 0.4 -2.0" width="0.1" height="0.7" depth="0.1" color="#3e2723"></a-box>
+    <a-box position="0.9 0.4 -2.0" width="0.1" height="0.7" depth="0.1" color="#3e2723"></a-box>
+
+    <!-- Wooden Bench -->
+    <a-box id="bench" class="clickable" position="-2.2 0.3 -2.5" width="1.2" height="0.4" depth="0.6" color="#4e342e" click-message="text: A comfortable wooden bench. Nothing useful underneath.">
     </a-box>
 
-    <!-- TABLE LEGS (correctly aligned under table) -->
-    <a-box position="-0.9 0.35 -3.45" width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
-    <a-box position="0.9 0.35 -3.45"  width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
-    <a-box position="-0.9 0.35 -2.55" width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
-    <a-box position="0.9 0.35 -2.55"  width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
 
-    <!-- BENCH (correct height) -->
-    <a-box
-      id="bench"
-      class="clickable"
-      position="-2 0.2 -3"
-      width="1.5"
-      height="0.4"
-      depth="0.6"
-      color="#654321"
-      click-message>
+    <!-- Secret Book on Table -->
+    <a-box id="secret-book" class="clickable" position="0.4 0.9 -2.3" rotation="0 -15 0" width="0.3" height="0.06" depth="0.4" color="#2e7d32" 
+           pickup-item="itemName: Clue Note A; message: You picked up the Secret Book note! It reads: 'First two code numbers are 74...'"></a-box>
+    
+    <!-- Red Box on Table (Contains Keypad Clue B) -->
+    <a-entity position="-0.5 0.85 -2.5">
+      <!-- Box Base -->
+      <a-box id="red-box-body" class="clickable" keypad-trigger="type: redbox" width="0.4" height="0.25" depth="0.3" color="#c62828"></a-box>
+      <!-- Box Lid -->
+      <a-box id="red-box-lid" position="0 0.13 -0.15" width="0.42" height="0.04" depth="0.32" color="#b71c1c"></a-box>
+    </a-entity>
+
+    <!-- Mysterious Blue Sphere -->
+    <a-sphere id="blue-sphere" class="clickable" position="2.5 1.0 -3.5" radius="0.35" color="#1565c0" material="emissive: #0d47a1; emissiveIntensity: 0.3; roughness: 0.2"
+              pickup-item="itemName: Brass Key; message: Inside the Blue Sphere you discovered the Brass Key!"></a-sphere>
+    <!-- Stand for Blue Sphere -->
+    <a-cylinder position="2.5 0.35 -3.5" radius="0.15" height="0.7" color="#212121"></a-cylinder>
+
+    <!-- Wall Clock Puzzle Clue (Back Wall) -->
+    <a-cylinder id="wall-clock" class="clickable" position="-2 2.6 -3.95" rotation="90 0 0" radius="0.4" height="0.05" color="#eceff1"
+                click-message="text: The wall clock is stopped at 7:42. Maybe these numbers are important?">
+      <a-box position="0 0.1 0.03" width="0.02" height="0.25" depth="0.01" color="#111111"></a-box>
+      <a-box position="0.08 0 0.03" rotation="0 0 -90" width="0.02" height="0.2" depth="0.01" color="#111111"></a-box>
+    </a-cylinder>
+
+    <!-- Decorative Wall Frame -->
+    <a-box id="picture-frame" class="clickable" position="2 2.5 -3.95" width="1.2" height="0.9" depth="0.04" color="#5d4037"
+           click-message="text: A painting of a stormy sea. On the corner is written: 'Combine all clues to escape.'">
+      <a-plane position="0 0 0.025" width="1.1" height="0.8" color="#00838f"></a-plane>
     </a-box>
 
-    <!-- SECRET BOOK (correct height: table top 0.8 + half book height 0.05 = 0.85) -->
-    <a-box
-      id="secret-book"
-      class="clickable"
-      position="0.3 0.85 -3"
-      width="0.3"
-      height="0.1"
-      depth="0.4"
-      color="green"
-      click-message>
-    </a-box>
 
-    <!-- RED BOX (correct height: table top 0.8 + half box height 0.25 = 1.05) -->
-    <a-box
-      id="red-box"
-      class="clickable"
-      position="-0.6 1.05 -3"
-      width="0.5"
-      height="0.5"
-      depth="0.5"
-      color="red"
-      click-message>
-    </a-box>
+    <!-- Exit Door (Left Wall) -->
+    <a-entity position="-3.9 0 0" rotation="0 90 0">
+      <!-- Door Frame -->
+      <a-box position="0 1.3 0" width="1.5" height="2.6" depth="0.1" color="#212121"></a-box>
+      <!-- Interactive Door Mesh -->
+      <a-box id="door-mesh" class="clickable" position="0.65 1.25 0.02" width="1.3" height="2.4" depth="0.08" color="#424242"
+             keypad-trigger="type: door">
+        <!-- Door Handle -->
+        <a-sphere position="-0.5 0 0.08" radius="0.06" color="#ffb300"></a-sphere>
+      </a-box>
 
-    <!-- BLUE SPHERE (moved away from table, sits correctly on floor) -->
-    <a-sphere
-      id="blue-sphere"
-      class="clickable"
-      position="2 0.7 -4"
-      radius="0.7"
-      color="blue"
-      click-message>
-    </a-sphere>
-
-    <a-sky color="#EEEEEE"></a-sky>
+      <!-- Keypad Panel next to Door -->
+      <a-box id="door-keypad-panel" class="clickable" position="-0.9 1.4 0.08" width="0.3" height="0.4" depth="0.05" color="#111111"
+             keypad-trigger="type: door">
+        <!-- Screen indicator -->
+        <a-plane position="0 0.12 0.03" width="0.22" height="0.1" color="#00e676"></a-plane>
+        <!-- Buttons simulation -->
+        <a-box position="0 -0.08 0.03" width="0.2" height="0.18" depth="0.01" color="#333333"></a-box>
+      </a-box>
+    </a-entity>
 
   </a-scene>
+
 </body>
 </html>
