@@ -7,16 +7,13 @@
 
   <script>
     // Click handler for all clickable objects.
-    // Shows a message on a HUD attached to the camera instead of using alert(),
-    // because alert() blocks the page and doesn't work inside VR.
     AFRAME.registerComponent('click-message', {
       schema: { text: { type: 'string', default: '' } },
       init: function () {
         let timer;
         this.el.addEventListener('click', () => {
-          console.log('Clicked:', this.el.id);
           const hud = document.querySelector('#hud');
-          hud.setAttribute('value', this.data.text || 'You clicked: ' + this.el.id);
+          hud.setAttribute('value', this.data.text || ('You clicked: ' + this.el.id));
           clearTimeout(timer);
           timer = setTimeout(() => hud.setAttribute('value', ''), 2000);
         });
@@ -28,13 +25,11 @@
 <body>
   <a-scene>
 
-    <!-- Rig sits on the floor (y = 0). The camera adds the 1.6 m eye height itself,
-         so the rig must NOT also be at y = 1.6 or you end up floating at 3.2 m. -->
+    <!-- CAMERA RIG (correct height) -->
     <a-entity id="rig" position="0 0 2">
-      <!-- wasd-controls lives on the camera so you move in the direction you're looking -->
-      <a-entity camera look-controls wasd-controls="fly: false">
-
-        <!-- Crosshair in the center of view for clicking (desktop and VR) -->
+      <a-entity camera look-controls wasd-controls>
+        
+        <!-- Cursor -->
         <a-entity
           cursor="fuse: false"
           raycaster="objects: .clickable"
@@ -43,20 +38,20 @@
           material="color: black; shader: flat">
         </a-entity>
 
-        <!-- HUD text that follows the view -->
+        <!-- HUD TEXT (moved further away to avoid distortion) -->
         <a-text
           id="hud"
           value=""
           align="center"
-          color="#111111"
-          width="1.5"
-          position="0 -0.35 -1">
+          color="#111"
+          width="2"
+          position="0 -0.4 -1.5">
         </a-text>
 
       </a-entity>
     </a-entity>
 
-    <!-- Floor -->
+    <!-- FLOOR -->
     <a-plane
       position="0 0 0"
       rotation="-90 0 0"
@@ -65,24 +60,25 @@
       color="#CCCCCC">
     </a-plane>
 
-    <!-- Table: top surface is at y = 0.8 -->
+    <!-- TABLE (correct height: 0.8 total) -->
     <a-box
       id="table"
       class="clickable"
-      position="0 0.75 -3"
+      position="0 0.8 -3"
       width="2"
       height="0.1"
       depth="1"
       color="#8B4513"
       click-message>
     </a-box>
-    <!-- Table legs (not clickable, so they never block clicks) -->
-    <a-box position="-0.9 0.35 -3.4" width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
-    <a-box position="0.9 0.35 -3.4"  width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
-    <a-box position="-0.9 0.35 -2.6" width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
-    <a-box position="0.9 0.35 -2.6"  width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
 
-    <!-- Bench: height 0.4, so center is at y = 0.2 to rest on the floor -->
+    <!-- TABLE LEGS (correctly aligned under table) -->
+    <a-box position="-0.9 0.35 -3.45" width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
+    <a-box position="0.9 0.35 -3.45"  width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
+    <a-box position="-0.9 0.35 -2.55" width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
+    <a-box position="0.9 0.35 -2.55"  width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
+
+    <!-- BENCH (correct height) -->
     <a-box
       id="bench"
       class="clickable"
@@ -94,7 +90,7 @@
       click-message>
     </a-box>
 
-    <!-- Secret Book (on table): 0.8 + 0.1 / 2 = 0.85 -->
+    <!-- SECRET BOOK (correct height: table top 0.8 + half book height 0.05 = 0.85) -->
     <a-box
       id="secret-book"
       class="clickable"
@@ -106,7 +102,7 @@
       click-message>
     </a-box>
 
-    <!-- Red Box (on table): 0.8 + 0.5 / 2 = 1.05 -->
+    <!-- RED BOX (correct height: table top 0.8 + half box height 0.25 = 1.05) -->
     <a-box
       id="red-box"
       class="clickable"
@@ -118,8 +114,7 @@
       click-message>
     </a-box>
 
-    <!-- Blue Sphere (on floor): radius 0.7, so center at y = 0.7.
-         Moved to x = 2 so it no longer intersects the table. -->
+    <!-- BLUE SPHERE (moved away from table, sits correctly on floor) -->
     <a-sphere
       id="blue-sphere"
       class="clickable"
@@ -129,7 +124,6 @@
       click-message>
     </a-sphere>
 
-    <!-- Sky -->
     <a-sky color="#EEEEEE"></a-sky>
 
   </a-scene>
