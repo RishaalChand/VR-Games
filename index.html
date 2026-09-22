@@ -6,12 +6,19 @@
   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
 
   <script>
-    // Simple click handler for all clickable objects
-    AFRAME.registerComponent('click-alert', {
+    // Click handler for all clickable objects.
+    // Shows a message on a HUD attached to the camera instead of using alert(),
+    // because alert() blocks the page and doesn't work inside VR.
+    AFRAME.registerComponent('click-message', {
+      schema: { text: { type: 'string', default: '' } },
       init: function () {
+        let timer;
         this.el.addEventListener('click', () => {
           console.log('Clicked:', this.el.id);
-          alert('You clicked: ' + this.el.id);
+          const hud = document.querySelector('#hud');
+          hud.setAttribute('value', this.data.text || 'You clicked: ' + this.el.id);
+          clearTimeout(timer);
+          timer = setTimeout(() => hud.setAttribute('value', ''), 2000);
         });
       }
     });
@@ -21,11 +28,13 @@
 <body>
   <a-scene>
 
-    <!-- Camera rig: moves with WASD, contains camera + cursor -->
-    <a-entity id="rig" wasd-controls position="0 1.6 2">
-      <!-- Camera (VR headset controls rotation) -->
-      <a-entity camera look-controls>
-        <!-- Cursor in the center of view for clicking in VR -->
+    <!-- Rig sits on the floor (y = 0). The camera adds the 1.6 m eye height itself,
+         so the rig must NOT also be at y = 1.6 or you end up floating at 3.2 m. -->
+    <a-entity id="rig" position="0 0 2">
+      <!-- wasd-controls lives on the camera so you move in the direction you're looking -->
+      <a-entity camera look-controls wasd-controls="fly: false">
+
+        <!-- Crosshair in the center of view for clicking (desktop and VR) -->
         <a-entity
           cursor="fuse: false"
           raycaster="objects: .clickable"
@@ -33,6 +42,17 @@
           geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
           material="color: black; shader: flat">
         </a-entity>
+
+        <!-- HUD text that follows the view -->
+        <a-text
+          id="hud"
+          value=""
+          align="center"
+          color="#111111"
+          width="1.5"
+          position="0 -0.35 -1">
+        </a-text>
+
       </a-entity>
     </a-entity>
 
@@ -45,43 +65,48 @@
       color="#CCCCCC">
     </a-plane>
 
-    <!-- Table -->
+    <!-- Table: top surface is at y = 0.8 -->
     <a-box
       id="table"
       class="clickable"
       position="0 0.75 -3"
       width="2"
-      height="0.5"
+      height="0.1"
       depth="1"
       color="#8B4513"
-      click-alert>
+      click-message>
     </a-box>
+    <!-- Table legs (not clickable, so they never block clicks) -->
+    <a-box position="-0.9 0.35 -3.4" width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
+    <a-box position="0.9 0.35 -3.4"  width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
+    <a-box position="-0.9 0.35 -2.6" width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
+    <a-box position="0.9 0.35 -2.6"  width="0.1" height="0.7" depth="0.1" color="#6B3410"></a-box>
 
-    <!-- Bench -->
+    <!-- Bench: height 0.4, so center is at y = 0.2 to rest on the floor -->
     <a-box
       id="bench"
       class="clickable"
-      position="-2 0.5 -3"
+      position="-2 0.2 -3"
       width="1.5"
       height="0.4"
       depth="0.6"
       color="#654321"
-      click-alert>
+      click-message>
     </a-box>
 
-    <!-- Secret Book (on table) -->
+    <!-- Secret Book (on table): 0.8 + 0.1 / 2 = 0.85 -->
     <a-box
       id="secret-book"
       class="clickable"
-      position="0.3 1.05 -3"
+      position="0.3 0.85 -3"
       width="0.3"
       height="0.1"
       depth="0.4"
       color="green"
-      click-alert>
+      click-message>
     </a-box>
 
-    <!-- Red Box (on table) -->
+    <!-- Red Box (on table): 0.8 + 0.5 / 2 = 1.05 -->
     <a-box
       id="red-box"
       class="clickable"
@@ -90,17 +115,18 @@
       height="0.5"
       depth="0.5"
       color="red"
-      click-alert>
+      click-message>
     </a-box>
 
-    <!-- Blue Sphere (on floor) -->
+    <!-- Blue Sphere (on floor): radius 0.7, so center at y = 0.7.
+         Moved to x = 2 so it no longer intersects the table. -->
     <a-sphere
       id="blue-sphere"
       class="clickable"
-      position="1 0.7 -4"
+      position="2 0.7 -4"
       radius="0.7"
       color="blue"
-      click-alert>
+      click-message>
     </a-sphere>
 
     <!-- Sky -->
