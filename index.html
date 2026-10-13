@@ -3,27 +3,188 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Escape Room VR - The Mystery Chamber</title>
+  <title>3D Escape Room - Pure Three.js</title>
 
-  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
   <style>
-    /* Custom style overlay rules for the HUD and Keypad UI overlay */
     body {
       margin: 0;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       user-select: none;
+      background-color: #0f172a;
     }
-    .custom-modal {
-      background: rgba(15, 23, 42, 0.92);
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+    .modal-backdrop {
+      background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(8px);
     }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 4px;
+    }
   </style>
+</head>
+<body class="text-slate-100">
+
+  <div id="canvas-container"></div>
+
+  <!-- HUD Overlay -->
+  <div id="hud-overlay" class="fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-4 sm:p-6">
+    
+    <!-- Top Bar: Game Title & Inventory -->
+    <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
+      
+      <!-- Title & Objectives Box -->
+      <div class="bg-slate-900/90 border border-slate-700/80 p-4 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto max-w-sm">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-xl">🗝️</span>
+          <h1 class="font-bold text-amber-400 text-base sm:text-lg">Escape Room: Mystery Chamber</h1>
+        </div>
+        <p id="objective-text" class="text-xs text-slate-300 leading-relaxed">
+          Search the room for clues. Inspect objects, find items, and discover the 4-digit master code to unlock the exit door!
+        </p>
+      </div>
+
+      <!-- Inventory System -->
+      <div class="bg-slate-900/90 border border-slate-700/80 p-4 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto min-w-[200px] max-w-xs">
+        <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+          <span>Inventory</span>
+          <span id="inventory-count" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">0 items</span>
+        </div>
+        <div id="inventory-list" class="flex flex-wrap gap-2 min-h-[32px] items-center">
+          <span class="text-xs text-slate-500 italic">No items collected</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Center Interaction Tooltip / Notification -->
+    <div id="notification-banner" class="self-center bg-slate-900/95 border border-amber-500/40 text-amber-300 font-medium px-6 py-3 rounded-full shadow-2xl transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-none text-center text-sm max-w-md">
+      <span id="notification-text">Welcome! Click on objects to inspect them.</span>
+    </div>
+
+    <!-- Controls Guidance Footer -->
+    <div class="self-center bg-slate-900/90 border border-slate-700/80 px-5 py-2.5 rounded-full text-xs text-slate-300 pointer-events-auto shadow-xl text-center flex items-center gap-3">
+      <span>🖱️ <b>Rotate:</b> Drag Left Click</span>
+      <span class="text-slate-600">|</span>
+      <span>🔍 <b>Zoom:</b> Scroll</span>
+      <span class="text-slate-600">|</span>
+      <span>✨ <b>Interact:</b> Click Objects</span>
+    </div>
+
+  </div>
+
+  <!-- Interactive Inspector / Clue Dialog Modal -->
+  <div id="inspect-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md shadow-2xl text-center transform transition-all scale-100">
+      <div id="inspect-icon" class="text-4xl mb-3">🔍</div>
+      <h2 id="inspect-title" class="text-xl font-bold text-amber-400 mb-2">Object Name</h2>
+      <p id="inspect-description" class="text-sm text-slate-300 mb-6 leading-relaxed">Object detailed description goes here.</p>
+      
+      <div id="inspect-actions" class="flex justify-center gap-3">
+        <button id="inspect-close-btn" onclick="closeInspectModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-2.5 rounded-xl text-sm font-semibold transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Red Box Combination Keypad Modal -->
+  <div id="redbox-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
+    <div class="bg-slate-900 border border-rose-900/80 rounded-3xl p-6 w-full max-w-xs shadow-2xl text-center">
+      <div class="text-3xl mb-1">📦</div>
+      <h2 class="text-lg font-bold text-rose-400 mb-1">Red Box Combination</h2>
+      <p class="text-xs text-slate-400 mb-4">Enter 3-Digit Pin (Check Secret Book)</p>
+      
+      <div id="redbox-display" class="bg-slate-950 font-mono text-2xl tracking-[0.4em] text-rose-400 py-3 rounded-xl mb-4 border border-rose-950 shadow-inner">
+        ___
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button onclick="pressRedBoxDigit('1')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">1</button>
+        <button onclick="pressRedBoxDigit('2')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">2</button>
+        <button onclick="pressRedBoxDigit('3')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">3</button>
+        <button onclick="pressRedBoxDigit('4')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">4</button>
+        <button onclick="pressRedBoxDigit('5')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">5</button>
+        <button onclick="pressRedBoxDigit('6')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">6</button>
+        <button onclick="pressRedBoxDigit('7')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">7</button>
+        <button onclick="pressRedBoxDigit('8')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">8</button>
+        <button onclick="pressRedBoxDigit('9')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">9</button>
+        <button onclick="clearRedBoxCode()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold py-3 rounded-xl text-xs transition">CLR</button>
+        <button onclick="pressRedBoxDigit('0')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">0</button>
+        <button onclick="submitRedBoxCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs transition">OK</button>
+      </div>
+
+      <button onclick="closeRedBoxModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 py-2 rounded-xl text-xs font-semibold">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- Exit Door Electronic Keypad Modal -->
+  <div id="keypad-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
+    <div class="bg-slate-900 border border-emerald-900/80 rounded-3xl p-6 w-full max-w-xs shadow-2xl text-center">
+      <div class="text-3xl mb-1">🔐</div>
+      <h2 class="text-lg font-bold text-emerald-400 mb-1">Exit Security Keypad</h2>
+      <p class="text-xs text-slate-400 mb-4">Enter 4-Digit Master Code</p>
+      
+      <div id="keypad-display" class="bg-slate-950 font-mono text-2xl tracking-[0.4em] text-emerald-400 py-3 rounded-xl mb-4 border border-emerald-950 shadow-inner">
+        ____
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button onclick="pressKeypadDigit('1')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">1</button>
+        <button onclick="pressKeypadDigit('2')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">2</button>
+        <button onclick="pressKeypadDigit('3')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">3</button>
+        <button onclick="pressKeypadDigit('4')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">4</button>
+        <button onclick="pressKeypadDigit('5')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">5</button>
+        <button onclick="pressKeypadDigit('6')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">6</button>
+        <button onclick="pressKeypadDigit('7')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">7</button>
+        <button onclick="pressKeypadDigit('8')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">8</button>
+        <button onclick="pressKeypadDigit('9')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">9</button>
+        <button onclick="clearKeypadCode()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold py-3 rounded-xl text-xs transition">CLR</button>
+        <button onclick="pressKeypadDigit('0')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">0</button>
+        <button onclick="submitKeypadCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs transition">OK</button>
+      </div>
+
+      <button onclick="closeKeypadModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 py-2 rounded-xl text-xs font-semibold">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- Victory Screen Overlay -->
+  <div id="victory-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center modal-backdrop p-4">
+    <div class="bg-slate-900 border border-emerald-500/50 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center animate-bounce-short">
+      <div class="text-6xl mb-3">🎉</div>
+      <h2 class="text-3xl font-black text-amber-400 mb-2">YOU ESCAPED!</h2>
+      <p class="text-sm text-slate-300 mb-6 leading-relaxed">
+        Fantastic job! You solved all the room's puzzles, found the key, and unlocked the exit door safely.
+      </p>
+      <button onclick="window.location.reload()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-3.5 rounded-2xl shadow-lg transition transform active:scale-95">
+        Play Again
+      </button>
+    </div>
+  </div>
 
   <script>
-    // Simple Web Audio API Synthesizer for VR interactions (No external audio file dependencies)
+    // ==========================================
+    // AUDIO SYNTHESIZER (No External Audio Files)
+    // ==========================================
     const AudioEngine = {
       ctx: null,
       init() {
@@ -41,9 +202,9 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(600, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.05);
-        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -53,17 +214,18 @@
       playPickup() {
         this.init();
         if (!this.ctx) return;
+        const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+        osc.frequency.setValueAtTime(523.25, now); // C5
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.12); // A5
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start();
-        osc.stop(this.ctx.currentTime + 0.15);
+        osc.stop(now + 0.12);
       },
       playUnlock() {
         this.init();
@@ -75,12 +237,12 @@
         osc.frequency.setValueAtTime(523.25, now); // C5
         osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
         osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start();
-        osc.stop(now + 0.4);
+        osc.stop(now + 0.45);
       },
       playError() {
         this.init();
@@ -89,9 +251,9 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.setValueAtTime(160, now);
         osc.frequency.setValueAtTime(110, now + 0.1);
-        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.setValueAtTime(0.15, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -100,410 +262,647 @@
       }
     };
 
+    // ==========================================
+    // GAME STATE & INVENTORY SYSTEM
+    // ==========================================
     const GameState = {
-      inventory: [], // Dynamic array of picked up items
-      hasBookNote: false,
-      hasKey: false,
+      inventory: [],
       redBoxUnlocked: false,
+      sphereUnlocked: false,
       doorUnlocked: false,
-      code: "7429", // Door Code found in clues
+      redBoxCode: "314",
+      masterDoorCode: "7429",
 
       addItem(item) {
         if (!this.inventory.includes(item)) {
           this.inventory.push(item);
           AudioEngine.playPickup();
           this.updateInventoryUI();
+          showNotification(`Picked up: ${item}`);
           return true;
         }
         return false;
       },
 
+      hasItem(item) {
+        return this.inventory.includes(item);
+      },
+
       updateInventoryUI() {
         const list = document.getElementById('inventory-list');
+        const count = document.getElementById('inventory-count');
         if (!list) return;
+
+        count.innerText = `${this.inventory.length} item${this.inventory.length === 1 ? '' : 's'}`;
+
         if (this.inventory.length === 0) {
-          list.innerHTML = `<span class="text-slate-400 italic text-sm">Empty</span>`;
+          list.innerHTML = `<span class="text-xs text-slate-500 italic">No items collected</span>`;
           return;
         }
-        list.innerHTML = this.inventory.map(item => 
-          `<span class="bg-indigo-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow">${item}</span>`
-        ).join('');
+
+        list.innerHTML = this.inventory.map(item => `
+          <div class="bg-indigo-600/90 text-white text-xs font-semibold px-3 py-1 rounded-full border border-indigo-400/30 shadow flex items-center gap-1.5 animate-fade-in">
+            <span>✨</span>
+            <span>${item}</span>
+          </div>
+        `).join('');
       }
     };
 
+    // HUD Notification Manager
+    let notifTimer = null;
+    function showNotification(msg) {
+      const banner = document.getElementById('notification-banner');
+      const text = document.getElementById('notification-text');
+      if (!banner || !text) return;
 
-    // Fixed & Enhanced Click Message Component
-    AFRAME.registerComponent('click-message', {
-      schema: {
-        text: { type: 'string', default: '' },
-        duration: { type: 'number', default: 3000 }
-      },
-      init: function () {
-        this.timer = null;
-        this.el.addEventListener('click', (e) => {
-          AudioEngine.playClick();
-          const textToShow = this.data.text || ('You interacted with: ' + (this.el.id || 'an object'));
-          showHUDMessage(textToShow, this.data.duration);
-        });
-      }
-    });
+      text.innerText = msg;
+      banner.classList.remove('opacity-0', 'translate-y-4');
+      banner.classList.add('opacity-100', 'translate-y-0');
 
-    // Interactive Keypad Modal Trigger Component
-    AFRAME.registerComponent('keypad-trigger', {
-      schema: {
-        type: { type: 'string', default: 'door' } // 'door' or 'redbox'
-      },
-      init: function () {
-        this.el.addEventListener('click', () => {
-          AudioEngine.playClick();
-          if (this.data.type === 'door') {
-            openDoorKeypadModal();
-          } else if (this.data.type === 'redbox') {
-            inspectRedBox();
-          }
-        });
-      }
-    });
+      clearTimeout(notifTimer);
+      notifTimer = setTimeout(() => {
+        banner.classList.remove('opacity-100', 'translate-y-0');
+        banner.classList.add('opacity-0', 'translate-y-4');
+      }, 3500);
+    }
 
-    // Pickup Item Component
-    AFRAME.registerComponent('pickup-item', {
-      schema: {
-        itemName: { type: 'string', default: 'Item' },
-        message: { type: 'string', default: 'Picked up item!' }
-      },
-      init: function () {
-        this.el.addEventListener('click', () => {
-          if (GameState.addItem(this.data.itemName)) {
-            showHUDMessage(this.data.message);
-            // Hide object from 3D world after picking up
-            this.el.setAttribute('visible', 'false');
-            this.el.classList.remove('clickable');
-          }
-        });
-      }
-    });
+    // Modal Inspectors & Actions
+    function showInspectModal(icon, title, description, actionText = null, actionCallback = null) {
+      AudioEngine.playClick();
+      document.getElementById('inspect-icon').innerText = icon;
+      document.getElementById('inspect-title').innerText = title;
+      document.getElementById('inspect-description').innerText = description;
 
-    // Global HUD Message Function
-    let hudTimer = null;
-    function showHUDMessage(msg, duration = 3000) {
-      // 3D VR HUD Text
-      const vrHud = document.querySelector('#vr-hud-text');
-      if (vrHud) {
-        vrHud.setAttribute('value', msg);
+      const actionsContainer = document.getElementById('inspect-actions');
+      actionsContainer.innerHTML = `
+        <button onclick="closeInspectModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-2 rounded-xl text-sm font-semibold transition">
+          Close
+        </button>
+      `;
+
+      if (actionText && actionCallback) {
+        const actionBtn = document.createElement('button');
+        actionBtn.className = "bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-2 rounded-xl text-sm font-extrabold transition shadow-lg";
+        actionBtn.innerText = actionText;
+        actionBtn.onclick = () => {
+          closeInspectModal();
+          actionCallback();
+        };
+        actionsContainer.appendChild(actionBtn);
       }
 
-      // Screen Overlay HUD
-      const overlayHud = document.getElementById('screen-hud');
-      const overlayText = document.getElementById('screen-hud-text');
-      if (overlayHud && overlayText) {
-        overlayText.innerText = msg;
-        overlayHud.classList.remove('opacity-0', 'pointer-events-none');
-        overlayHud.classList.add('opacity-100');
+      document.getElementById('inspect-modal').classList.remove('hidden');
+    }
 
-        clearTimeout(hudTimer);
-        hudTimer = setTimeout(() => {
-          overlayHud.classList.remove('opacity-100');
-          overlayHud.classList.add('opacity-0', 'pointer-events-none');
-          if (vrHud) vrHud.setAttribute('value', '');
-        }, duration);
+    function closeInspectModal() {
+      AudioEngine.playClick();
+      document.getElementById('inspect-modal').classList.add('hidden');
+    }
+
+    // Red Box Modal Controls
+    let currentRedBoxCode = "";
+    function openRedBoxModal() {
+      if (GameState.redBoxUnlocked) {
+        showInspectModal("📦", "Red Box", "The Red Box is already open. Inside was the Golden Key.");
+        return;
+      }
+      currentRedBoxCode = "";
+      updateRedBoxDisplay();
+      document.getElementById('redbox-modal').classList.remove('hidden');
+    }
+
+    function closeRedBoxModal() {
+      AudioEngine.playClick();
+      document.getElementById('redbox-modal').classList.add('hidden');
+    }
+
+    function pressRedBoxDigit(d) {
+      AudioEngine.playClick();
+      if (currentRedBoxCode.length < 3) {
+        currentRedBoxCode += d;
+        updateRedBoxDisplay();
       }
     }
 
-    let currentInputCode = "";
+    function clearRedBoxCode() {
+      AudioEngine.playClick();
+      currentRedBoxCode = "";
+      updateRedBoxDisplay();
+    }
 
-    function openDoorKeypadModal() {
+    function updateRedBoxDisplay() {
+      document.getElementById('redbox-display').innerText = currentRedBoxCode.padEnd(3, '_');
+    }
+
+    function submitRedBoxCode() {
+      if (currentRedBoxCode === GameState.redBoxCode) {
+        AudioEngine.playUnlock();
+        GameState.redBoxUnlocked = true;
+        closeRedBoxModal();
+        
+        // Animate Box Lid opening in Three.js
+        if (redBoxLid) {
+          redBoxLid.rotation.x = -Math.PI * 0.65;
+        }
+
+        GameState.addItem("Golden Key");
+        showInspectModal("🔑", "Red Box Unlocked!", "You typed the correct combination (314)! The lockbox opens, revealing a Golden Key!");
+      } else {
+        AudioEngine.playError();
+        showNotification("Incorrect Combination Code! Check the Secret Book.");
+        currentRedBoxCode = "";
+        updateRedBoxDisplay();
+      }
+    }
+
+    // Master Keypad Modal Controls
+    let currentDoorCode = "";
+    function openKeypadModal() {
       if (GameState.doorUnlocked) {
-        showHUDMessage("The door is already unlocked! Click the handle to exit!");
+        showNotification("The door is already unlocked! Click the door handle to exit.");
         return;
       }
-      currentInputCode = "";
-      updateKeypadDisplay();
+      currentDoorCode = "";
+      updateDoorKeypadDisplay();
       document.getElementById('keypad-modal').classList.remove('hidden');
     }
 
     function closeKeypadModal() {
+      AudioEngine.playClick();
       document.getElementById('keypad-modal').classList.add('hidden');
     }
 
-    function pressKeypadDigit(digit) {
+    function pressKeypadDigit(d) {
       AudioEngine.playClick();
-      if (currentInputCode.length < 4) {
-        currentInputCode += digit;
-        updateKeypadDisplay();
+      if (currentDoorCode.length < 4) {
+        currentDoorCode += d;
+        updateDoorKeypadDisplay();
       }
     }
 
     function clearKeypadCode() {
       AudioEngine.playClick();
-      currentInputCode = "";
-      updateKeypadDisplay();
+      currentDoorCode = "";
+      updateDoorKeypadDisplay();
     }
 
-    function updateKeypadDisplay() {
-      const display = document.getElementById('keypad-display');
-      if (display) {
-        display.innerText = currentInputCode.padEnd(4, '_');
-      }
+    function updateDoorKeypadDisplay() {
+      document.getElementById('keypad-display').innerText = currentDoorCode.padEnd(4, '_');
     }
 
     function submitKeypadCode() {
-      if (currentInputCode === GameState.code) {
+      if (currentDoorCode === GameState.masterDoorCode) {
         AudioEngine.playUnlock();
         GameState.doorUnlocked = true;
         closeKeypadModal();
-        showHUDMessage("Door Unlocked! Click the door to ESCAPE!");
         
-        // Animate door open
-        const door = document.getElementById('door-mesh');
-        if (door) {
-          door.setAttribute('animation', 'property: rotation; to: 0 -90 0; dur: 1500; easing: easeOutQuad');
-          door.setAttribute('click-message', 'text: You escaped! CONGRATULATIONS!');
-          door.addEventListener('click', triggerVictory);
+        // Animate Door opening
+        if (doorGroup) {
+          doorGroup.rotation.y = -Math.PI * 0.45;
         }
+
+        showNotification("Door Unlocked! Click the door to escape!");
       } else {
         AudioEngine.playError();
-        showHUDMessage("Access Denied! Incorrect Passcode.");
-        currentInputCode = "";
-        updateKeypadDisplay();
+        showNotification("Access Denied! Incorrect Master Passcode.");
+        currentDoorCode = "";
+        updateDoorKeypadDisplay();
       }
     }
 
-    function inspectRedBox() {
-      if (!GameState.redBoxUnlocked) {
-        if (GameState.inventory.includes("Brass Key")) {
-          AudioEngine.playUnlock();
-          GameState.redBoxUnlocked = true;
-          showHUDMessage("You used the Brass Key to unlock the Red Box! Inside you find a note with numbers: '...29'");
-          const redBoxTop = document.getElementById('red-box-lid');
-          if (redBoxTop) {
-            redBoxTop.setAttribute('animation', 'property: rotation; to: -110 0 0; dur: 1000');
+    // ==========================================
+    // THREE.JS SETUP & SCENE CREATION
+    // ==========================================
+    let scene, camera, renderer, controls;
+    let raycaster, mouse;
+    let interactiveObjects = [];
+    let redBoxLid, doorGroup;
+    let hoveredObject = null;
+
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+
+      // 1. Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0f1d);
+      scene.fog = new THREE.FogExp2(0x0a0f1d, 0.04);
+
+      // 2. Camera
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 2.2, 4.2);
+
+      // 3. Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // 4. Orbit Controls
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 + 0.05; // Prevent camera going below floor
+      controls.minDistance = 1.5;
+      controls.maxDistance = 6.5;
+      controls.target.set(0, 1.5, -0.5);
+
+      // 5. Lighting
+      const ambientLight = new THREE.AmbientLight(0xd1e8ff, 0.6);
+      scene.add(ambientLight);
+
+      const mainLight = new THREE.SpotLight(0xffecd1, 1.8);
+      mainLight.position.set(0, 3.8, 0);
+      mainLight.angle = Math.PI / 3;
+      mainLight.penumbra = 0.4;
+      mainLight.castShadow = true;
+      mainLight.shadow.mapSize.width = 1024;
+      mainLight.shadow.mapSize.height = 1024;
+      scene.add(mainLight);
+
+      const warmLamp = new THREE.PointLight(0xffb74d, 0.8, 6);
+      warmLamp.position.set(-2, 2.2, -2);
+      scene.add(warmLamp);
+
+      // 6. Build Room Environment
+      buildRoom();
+
+      // 7. Raycaster for Interactions
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+
+      // Event Listeners
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('pointermove', onPointerMove);
+      renderer.domElement.addEventListener('pointerdown', onPointerDown);
+
+      // Start Render Loop
+      animate();
+    }
+
+    // Helper for adding clickable objects
+    function registerInteractive(mesh, name, onInteract) {
+      mesh.userData = { name, onInteract, originalEmissive: mesh.material.emissive ? mesh.material.emissive.getHex() : 0x000000 };
+      interactiveObjects.push(mesh);
+    }
+
+    function buildRoom() {
+      // Room Dimensions: 8x8x4
+      const roomWidth = 8, roomDepth = 8, roomHeight = 4;
+
+      // Floor (Wood Pattern)
+      const floorGeo = new THREE.PlaneGeometry(roomWidth, roomDepth);
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.6 });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      // Ceiling
+      const ceilingGeo = new THREE.PlaneGeometry(roomWidth, roomDepth);
+      const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+      const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat);
+      ceiling.position.y = roomHeight;
+      ceiling.rotation.x = Math.PI / 2;
+      scene.add(ceiling);
+
+      // Wall Material
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+
+      // Back Wall (North)
+      const wallNorth = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth, roomHeight), wallMat);
+      wallNorth.position.set(0, roomHeight / 2, -roomDepth / 2);
+      scene.add(wallNorth);
+
+      // South Wall
+      const wallSouth = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth, roomHeight), wallMat);
+      wallSouth.position.set(0, roomHeight / 2, roomDepth / 2);
+      wallSouth.rotation.y = Math.PI;
+      scene.add(wallSouth);
+
+      // East Wall
+      const wallEast = new THREE.Mesh(new THREE.PlaneGeometry(roomDepth, roomHeight), wallMat);
+      wallEast.position.set(roomWidth / 2, roomHeight / 2, 0);
+      wallEast.rotation.y = -Math.PI / 2;
+      scene.add(wallEast);
+
+      // West Wall (Door side)
+      const wallWest = new THREE.Mesh(new THREE.PlaneGeometry(roomDepth, roomHeight), wallMat);
+      wallWest.position.set(-roomWidth / 2, roomHeight / 2, 0);
+      wallWest.rotation.y = Math.PI / 2;
+      scene.add(wallWest);
+
+      // Ceiling Light Fixture
+      const lampGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.2, 16);
+      const lampMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8 });
+      const lamp = new THREE.Mesh(lampGeo, lampMat);
+      lamp.position.set(0, 3.9, 0);
+      scene.add(lamp);
+
+      // --- CENTER TABLE ---
+      const tableTopGeo = new THREE.BoxGeometry(2.2, 0.1, 1.2);
+      const woodMat = new THREE.MeshStandardMaterial({ color: 0x543310, roughness: 0.7 });
+      const tableTop = new THREE.Mesh(tableTopGeo, woodMat);
+      tableTop.position.set(0, 0.9, -1);
+      tableTop.castShadow = true;
+      tableTop.receiveShadow = true;
+      scene.add(tableTop);
+
+      // Table Legs
+      const legGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.9);
+      const legPositions = [
+        [-1.0, 0.45, -1.5], [1.0, 0.45, -1.5],
+        [-1.0, 0.45, -0.5], [1.0, 0.45, -0.5]
+      ];
+      legPositions.forEach(pos => {
+        const leg = new THREE.Mesh(legGeo, woodMat);
+        leg.position.set(...pos);
+        leg.castShadow = true;
+        scene.add(leg);
+      });
+
+      registerInteractive(tableTop, "Wooden Table", () => {
+        showNotification("A sturdy study table with various objects on top.");
+      });
+
+      // --- BENCH ---
+      const benchTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.5), woodMat);
+      benchTop.position.set(-2.2, 0.45, -1);
+      benchTop.castShadow = true;
+      scene.add(benchTop);
+
+      const benchLegGeo = new THREE.BoxGeometry(0.08, 0.45, 0.45);
+      const benchLeg1 = new THREE.Mesh(benchLegGeo, woodMat);
+      benchLeg1.position.set(-2.8, 0.225, -1);
+      const benchLeg2 = new THREE.Mesh(benchLegGeo, woodMat);
+      benchLeg2.position.set(-1.6, 0.225, -1);
+      scene.add(benchLeg1);
+      scene.add(benchLeg2);
+
+      registerInteractive(benchTop, "Wooden Bench", () => {
+        showNotification("An old wooden bench. Nothing hidden underneath.");
+      });
+
+      // --- SECRET BOOK (CLUE 1) ---
+      const bookGeo = new THREE.BoxGeometry(0.35, 0.06, 0.45);
+      const bookMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.5 });
+      const secretBook = new THREE.Mesh(bookGeo, bookMat);
+      secretBook.position.set(0.5, 0.98, -0.8);
+      secretBook.rotation.y = -0.3;
+      secretBook.castShadow = true;
+      scene.add(secretBook);
+
+      registerInteractive(secretBook, "Secret Book", () => {
+        GameState.addItem("Secret Book Note");
+        showInspectModal(
+          "📖",
+          "Secret Leather Book",
+          "You open the book and find a handwritten note: 'The combination pin for the Red Box on this table is 3-1-4. Also, check the wall clock for the first door digits!'"
+        );
+      });
+
+      // --- RED LOCKBOX (CLUE 2) ---
+      const redBoxGroup = new THREE.Group();
+      redBoxGroup.position.set(-0.6, 0.95, -1.0);
+
+      const boxBodyGeo = new THREE.BoxGeometry(0.45, 0.2, 0.35);
+      const redMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.4, metalness: 0.2 });
+      const redBoxBody = new THREE.Mesh(boxBodyGeo, redMat);
+      redBoxBody.position.y = 0.1;
+      redBoxBody.castShadow = true;
+      redBoxGroup.add(redBoxBody);
+
+      const lidGeo = new THREE.BoxGeometry(0.46, 0.04, 0.36);
+      redBoxLid = new THREE.Mesh(lidGeo, redMat);
+      redBoxLid.position.set(0, 0.2, -0.17); // Pivot point at back
+      redBoxLid.castShadow = true;
+      redBoxGroup.add(redBoxLid);
+
+      scene.add(redBoxGroup);
+
+      registerInteractive(redBoxBody, "Red Box", () => {
+        openRedBoxModal();
+      });
+
+      // --- GLOWING BLUE SPHERE (CLUE 3) ---
+      const pedestalGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.8, 16);
+      const pedestalMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
+      const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
+      pedestal.position.set(2.5, 0.4, -2);
+      pedestal.castShadow = true;
+      scene.add(pedestal);
+
+      const sphereGeo = new THREE.SphereGeometry(0.28, 32, 32);
+      const sphereMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, emissive: 0x1d4ed8, emissiveIntensity: 0.5, roughness: 0.2 });
+      const blueSphere = new THREE.Mesh(sphereGeo, sphereMat);
+      blueSphere.position.set(2.5, 1.08, -2);
+      blueSphere.castShadow = true;
+      scene.add(blueSphere);
+
+      registerInteractive(blueSphere, "Blue Crystal Sphere", () => {
+        if (!GameState.sphereUnlocked) {
+          if (GameState.hasItem("Golden Key")) {
+            AudioEngine.playUnlock();
+            GameState.sphereUnlocked = true;
+            GameState.addItem("Door Clue Part B");
+            sphereMat.emissive.setHex(0x10b981); // Turn green
+            showInspectModal(
+              "🔮",
+              "Crystal Sphere Unlocked!",
+              "You insert the Golden Key into the sphere base. The crystal glows green and projects two digits onto the pedestal: '...29'!"
+            );
+          } else {
+            AudioEngine.playError();
+            showInspectModal(
+              "🔮",
+              "Locked Blue Sphere",
+              "The sphere is locked inside a magnetic forcefield. It has a small keyhole that requires a Golden Key."
+            );
           }
-          GameState.addItem("Keypad Clue B");
         } else {
-          AudioEngine.playError();
-          showHUDMessage("The Red Box is securely locked. It requires a small Brass Key.");
+          showNotification("The Blue Sphere projected digits '...29'.");
+        }
+      });
+
+      // --- WALL CLOCK (CLUE HINT) ---
+      const clockGroup = new THREE.Group();
+      clockGroup.position.set(-1.8, 2.6, -3.92);
+
+      const clockFrameGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.05, 32);
+      const clockFrameMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+      const clockFrame = new THREE.Mesh(clockFrameGeo, clockFrameMat);
+      clockFrame.rotation.x = Math.PI / 2;
+      clockGroup.add(clockFrame);
+
+      // Hands pointing to 7:42
+      const handMat = new THREE.MeshBasicMaterial({ color: 0x090d16 });
+      const hourHand = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.22, 0.02), handMat);
+      hourHand.position.set(-0.08, -0.05, 0.03);
+      hourHand.rotation.z = 2.2;
+      clockGroup.add(hourHand);
+
+      const minuteHand = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.32, 0.02), handMat);
+      minuteHand.position.set(0.1, 0.05, 0.03);
+      minuteHand.rotation.z = -1.2;
+      clockGroup.add(minuteHand);
+
+      scene.add(clockGroup);
+
+      registerInteractive(clockFrame, "Wall Clock", () => {
+        GameState.addItem("Clock Clue Part A");
+        showInspectModal(
+          "🕰️",
+          "Stopped Wall Clock",
+          "The clock hands are frozen precisely at 7:42. These numbers ('74...') form the first two digits of the Exit Door master code!"
+        );
+      });
+
+      // --- PAINTING FRAME ---
+      const pictureGeo = new THREE.BoxGeometry(1.4, 1.0, 0.04);
+      const pictureMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.8 });
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 });
+      const frame = new THREE.Mesh(pictureGeo, frameMat);
+      frame.position.set(1.8, 2.5, -3.92);
+
+      const canvasPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), pictureMat);
+      canvasPlane.position.set(1.8, 2.5, -3.89);
+      scene.add(frame);
+      scene.add(canvasPlane);
+
+      registerInteractive(frame, "Seascape Painting", () => {
+        showNotification("A peaceful painting of an ocean. A tiny scribble reads: 'Combine Clock + Sphere clues'.");
+      });
+
+      // --- EXIT DOOR & KEYPAD (WEST WALL) ---
+      doorGroup = new THREE.Group();
+      doorGroup.position.set(-3.9, 0, 0); // Pivot hinge point
+
+      // Door Frame
+      const doorFrameGeo = new THREE.BoxGeometry(0.1, 2.6, 1.4);
+      const frameMesh = new THREE.Mesh(doorFrameGeo, new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+      doorFrameGeo.translate(0, 1.3, 0);
+      scene.add(frameMesh);
+
+      // Interactive Door Leaf
+      const doorLeafGeo = new THREE.BoxGeometry(0.08, 2.45, 1.25);
+      const doorMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
+      const doorMesh = new THREE.Mesh(doorLeafGeo, doorMat);
+      doorMesh.position.set(0, 1.225, 0.625);
+      doorMesh.castShadow = true;
+      doorGroup.add(doorMesh);
+
+      // Handle Knob
+      const knobGeo = new THREE.SphereGeometry(0.06, 16, 16);
+      const knobMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8 });
+      const knob = new THREE.Mesh(knobGeo, knobMat);
+      knob.position.set(0.08, 1.1, 1.1);
+      doorGroup.add(knob);
+
+      scene.add(doorGroup);
+
+      registerInteractive(doorMesh, "Exit Door", () => {
+        if (!GameState.doorUnlocked) {
+          openKeypadModal();
+        } else {
+          AudioEngine.playUnlock();
+          document.getElementById('victory-modal').classList.remove('hidden');
+        }
+      });
+
+      // Keypad Box mounted on wall next to door
+      const keypadBoxGeo = new THREE.BoxGeometry(0.06, 0.4, 0.28);
+      const keypadMat = new THREE.MeshStandardMaterial({ color: 0x020617 });
+      const keypadBox = new THREE.Mesh(keypadBoxGeo, keypadMat);
+      keypadBox.position.set(-3.9, 1.4, -0.9);
+      scene.add(keypadBox);
+
+      const keypadScreenGeo = new THREE.PlaneGeometry(0.2, 0.1);
+      const keypadScreenMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+      const keypadScreen = new THREE.Mesh(keypadScreenGeo, keypadScreenMat);
+      keypadScreen.position.set(-3.86, 1.5, -0.9);
+      keypadScreen.rotation.y = Math.PI / 2;
+      scene.add(keypadScreen);
+
+      registerInteractive(keypadBox, "Door Keypad Panel", () => {
+        openKeypadModal();
+      });
+    }
+
+    // Mouse Pointer Movement & Hover Effects
+    function onPointerMove(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(interactiveObjects);
+
+      if (intersects.length > 0) {
+        const obj = intersects[0].object;
+        if (hoveredObject !== obj) {
+          resetHover();
+          hoveredObject = obj;
+          document.body.style.cursor = 'pointer';
+
+          // Highlight effect
+          if (obj.material && obj.material.emissive) {
+            obj.material.emissive.setHex(0x38bdf8);
+            obj.material.emissiveIntensity = 0.4;
+          }
         }
       } else {
-        showHUDMessage("The Red Box is open. It contained Clue B ('...29').");
+        resetHover();
       }
     }
 
-    function triggerVictory() {
-      AudioEngine.playUnlock();
-      document.getElementById('victory-modal').classList.remove('hidden');
+    function resetHover() {
+      if (hoveredObject) {
+        if (hoveredObject.material && hoveredObject.material.emissive) {
+          const orig = hoveredObject.userData.originalEmissive || 0x000000;
+          hoveredObject.material.emissive.setHex(orig);
+          hoveredObject.material.emissiveIntensity = orig === 0x1d4ed8 ? 0.5 : 0;
+        }
+        hoveredObject = null;
+        document.body.style.cursor = 'default';
+      }
     }
+
+    // Click Object Handler
+    function onPointerDown(event) {
+      // Avoid firing clicks if user is dragging camera
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(interactiveObjects);
+
+      if (intersects.length > 0) {
+        const clickedObj = intersects[0].object;
+        if (clickedObj.userData && clickedObj.userData.onInteract) {
+          clickedObj.userData.onInteract();
+        }
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Render Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Smooth Orbit Controls Update
+      controls.update();
+
+      // Render Scene
+      renderer.render(scene, camera);
+    }
+
+    // Initialize Game Engine on Window Load
+    window.addEventListener('load', () => {
+      init3D();
+    });
   </script>
-</head>
-
-<body class="bg-slate-900 text-slate-100 select-none overflow-hidden">
-
-  <!-- 2D Overlay HUD (Desktop / Mobile Friendly) -->
-  <div id="ui-container" class="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-4">
-    
-    <!-- Header / Objective Banner -->
-    <div class="flex justify-between items-start">
-      <div class="bg-slate-800/80 backdrop-blur-md p-3 rounded-xl border border-slate-700 shadow-lg pointer-events-auto max-w-sm">
-        <h1 class="text-base font-bold text-amber-400 flex items-center gap-2">
-          <span>🗝️</span> Escape Room VR
-        </h1>
-        <p id="objective-text" class="text-xs text-slate-300 mt-1">
-          Find clues, inspect objects, and discover the 4-digit combination code to unlock the exit door!
-        </p>
-      </div>
-
-      <!-- Inventory Bar -->
-      <div class="bg-slate-800/80 backdrop-blur-md p-3 rounded-xl border border-slate-700 shadow-lg pointer-events-auto min-w-[160px]">
-        <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Inventory</div>
-        <div id="inventory-list" class="flex flex-wrap gap-1">
-          <span class="text-slate-400 italic text-sm">Empty</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Center HUD Text Banner -->
-    <div id="screen-hud" class="self-center bg-slate-900/90 text-amber-300 font-medium px-6 py-3 rounded-full border border-amber-500/30 shadow-2xl transition-opacity duration-300 opacity-0 pointer-events-none text-center max-w-md">
-      <span id="screen-hud-text">Welcome to the Mystery Chamber</span>
-    </div>
-
-    <!-- Help Controls Footer -->
-    <div class="bg-slate-800/80 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-700 text-xs text-slate-400 self-center pointer-events-auto shadow-md text-center">
-      🖥️ <b>WASD</b> to move | Drag mouse to look around | Click objects to interact
-    </div>
-  </div>
-
-  <!-- Exit Door Electronic Keypad Modal -->
-  <div id="keypad-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center custom-modal p-4">
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-xs shadow-2xl text-center">
-      <h2 class="text-lg font-bold text-slate-100 mb-1">Door Security Keypad</h2>
-      <p class="text-xs text-slate-400 mb-4">Enter 4-Digit Security Passcode</p>
-      
-      <!-- Keypad Screen -->
-      <div id="keypad-display" class="bg-slate-950 font-mono text-2xl tracking-[0.3em] text-emerald-400 py-3 rounded-lg mb-4 border border-slate-800 shadow-inner">
-        ____
-      </div>
-
-      <!-- Keypad Grid -->
-      <div class="grid grid-cols-3 gap-2 mb-4">
-        <button onclick="pressKeypadDigit('1')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">1</button>
-        <button onclick="pressKeypadDigit('2')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">2</button>
-        <button onclick="pressKeypadDigit('3')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">3</button>
-        <button onclick="pressKeypadDigit('4')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">4</button>
-        <button onclick="pressKeypadDigit('5')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">5</button>
-        <button onclick="pressKeypadDigit('6')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">6</button>
-        <button onclick="pressKeypadDigit('7')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">7</button>
-        <button onclick="pressKeypadDigit('8')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">8</button>
-        <button onclick="pressKeypadDigit('9')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">9</button>
-        <button onclick="clearKeypadCode()" class="bg-rose-900/60 hover:bg-rose-800 text-rose-200 font-bold py-3 rounded-lg text-sm transition">CLR</button>
-        <button onclick="pressKeypadDigit('0')" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold py-3 rounded-lg text-lg transition">0</button>
-        <button onclick="submitKeypadCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg text-sm transition">OK</button>
-      </div>
-
-      <button onclick="closeKeypadModal()" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-lg text-xs font-semibold">
-        Cancel / Back
-      </button>
-    </div>
-  </div>
-
-  <!-- Victory Overlay Modal -->
-  <div id="victory-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center custom-modal p-4">
-    <div class="bg-slate-800 border border-emerald-500/50 rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
-      <div class="text-5xl mb-3">🎉</div>
-      <h2 class="text-2xl font-black text-amber-400 mb-2">YOU ESCAPED!</h2>
-      <p class="text-sm text-slate-300 mb-6">You solved all the room's mysteries and safely unlocked the exit door.</p>
-      <button onclick="window.location.reload()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl shadow-lg transition">
-        Play Again
-      </button>
-    </div>
-  </div>
-
-  <a-scene embedded class="w-full h-screen" loading-screen="enabled: false" renderer="colorManagement: true;">
-
-    <!-- Assets Definition -->
-    <a-assets timeout="1000">
-      <a-mixin id="wood-color" material="color: #8B4513; roughness: 0.8"></a-mixin>
-      <a-mixin id="wall-color" material="color: #2c3e50; roughness: 0.9"></a-mixin>
-    </a-assets>
-
-    <!-- Ambient & Spot Lighting -->
-    <a-entity light="type: ambient; color: #78909c; intensity: 0.6"></a-entity>
-    <a-entity light="type: spotlight; color: #ffebd2; intensity: 1.2; angle: 45; penumbra: 0.3" position="0 3.8 -2" rotation="-90 0 0"></a-entity>
-    <a-entity light="type: point; color: #ffaa55; intensity: 0.8; distance: 6" position="0 2 -1"></a-entity>
-
-    <!-- Camera / Player Setup with Unified Raycaster -->
-    <a-entity id="rig" position="0 0 2">
-      <a-entity camera look-controls wasd-controls position="0 1.6 0">
-        <!-- Interactive Cursor / Raycaster -->
-        <a-entity
-          cursor="rayOrigin: mouse"
-          raycaster="objects: .clickable; interval: 100"
-          geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.018"
-          material="color: #ffca28; shader: flat; opacity: 0.8"
-          position="0 0 -1">
-        </a-entity>
-
-        <!-- 3D VR Text HUD -->
-        <a-text
-          id="vr-hud-text"
-          value=""
-          align="center"
-          color="#FFE082"
-          width="2.5"
-          position="0 -0.4 -1.2">
-        </a-text>
-      </a-entity>
-
-      <!-- Laser Controller Hand Support for VR Headsets -->
-      <a-entity laser-controls="hand: right" raycaster="objects: .clickable"></a-entity>
-      <a-entity laser-controls="hand: left" raycaster="objects: .clickable"></a-entity>
-    </a-entity>
-
-    <!-- Room Floor -->
-    <a-plane position="0 0 0" rotation="-90 0 0" width="8" height="8" color="#3e2723" material="roughness: 0.7"></a-plane>
-    <!-- Room Ceiling -->
-    <a-plane position="0 4 0" rotation="90 0 0" width="8" height="8" color="#1a237e"></a-plane>
-
-    <!-- Enclosing Walls -->
-    <!-- Back Wall (North) -->
-    <a-plane position="0 2 -4" rotation="0 0 0" width="8" height="4" mixin="wall-color"></a-plane>
-    <!-- Front Wall (South) -->
-    <a-plane position="0 2 4" rotation="0 180 0" width="8" height="4" mixin="wall-color"></a-plane>
-    <!-- Left Wall (West) -->
-    <a-plane position="-4 2 0" rotation="0 90 0" width="8" height="4" mixin="wall-color"></a-plane>
-    <!-- Right Wall (East) -->
-    <a-plane position="4 2 0" rotation="0 -90 0" width="8" height="4" mixin="wall-color"></a-plane>
-
-    <!-- Ceiling Lamp Fixture -->
-    <a-cylinder position="0 3.9 -2" radius="0.3" height="0.1" color="#111111"></a-cylinder>
-    <a-cone position="0 3.6 -2" radius-top="0.1" radius-bottom="0.4" height="0.3" color="#333333"></a-cone>
-
-    <!-- Main Center Table -->
-    <a-box id="table" class="clickable" position="0 0.8 -2.5" width="2" height="0.1" depth="1.2" color="#5d4037" click-message="text: A sturdy wooden study table. Let's inspect the objects on top.">
-    </a-box>
-    <!-- Table Legs -->
-    <a-box position="-0.9 0.4 -3.0" width="0.1" height="0.7" depth="0.1" color="#3e2723"></a-box>
-    <a-box position="0.9 0.4 -3.0" width="0.1" height="0.7" depth="0.1" color="#3e2723"></a-box>
-    <a-box position="-0.9 0.4 -2.0" width="0.1" height="0.7" depth="0.1" color="#3e2723"></a-box>
-    <a-box position="0.9 0.4 -2.0" width="0.1" height="0.7" depth="0.1" color="#3e2723"></a-box>
-
-    <!-- Wooden Bench -->
-    <a-box id="bench" class="clickable" position="-2.2 0.3 -2.5" width="1.2" height="0.4" depth="0.6" color="#4e342e" click-message="text: A comfortable wooden bench. Nothing useful underneath.">
-    </a-box>
-
-
-    <!-- Secret Book on Table -->
-    <a-box id="secret-book" class="clickable" position="0.4 0.9 -2.3" rotation="0 -15 0" width="0.3" height="0.06" depth="0.4" color="#2e7d32" 
-           pickup-item="itemName: Clue Note A; message: You picked up the Secret Book note! It reads: 'First two code numbers are 74...'"></a-box>
-    
-    <!-- Red Box on Table (Contains Keypad Clue B) -->
-    <a-entity position="-0.5 0.85 -2.5">
-      <!-- Box Base -->
-      <a-box id="red-box-body" class="clickable" keypad-trigger="type: redbox" width="0.4" height="0.25" depth="0.3" color="#c62828"></a-box>
-      <!-- Box Lid -->
-      <a-box id="red-box-lid" position="0 0.13 -0.15" width="0.42" height="0.04" depth="0.32" color="#b71c1c"></a-box>
-    </a-entity>
-
-    <!-- Mysterious Blue Sphere -->
-    <a-sphere id="blue-sphere" class="clickable" position="2.5 1.0 -3.5" radius="0.35" color="#1565c0" material="emissive: #0d47a1; emissiveIntensity: 0.3; roughness: 0.2"
-              pickup-item="itemName: Brass Key; message: Inside the Blue Sphere you discovered the Brass Key!"></a-sphere>
-    <!-- Stand for Blue Sphere -->
-    <a-cylinder position="2.5 0.35 -3.5" radius="0.15" height="0.7" color="#212121"></a-cylinder>
-
-    <!-- Wall Clock Puzzle Clue (Back Wall) -->
-    <a-cylinder id="wall-clock" class="clickable" position="-2 2.6 -3.95" rotation="90 0 0" radius="0.4" height="0.05" color="#eceff1"
-                click-message="text: The wall clock is stopped at 7:42. Maybe these numbers are important?">
-      <a-box position="0 0.1 0.03" width="0.02" height="0.25" depth="0.01" color="#111111"></a-box>
-      <a-box position="0.08 0 0.03" rotation="0 0 -90" width="0.02" height="0.2" depth="0.01" color="#111111"></a-box>
-    </a-cylinder>
-
-    <!-- Decorative Wall Frame -->
-    <a-box id="picture-frame" class="clickable" position="2 2.5 -3.95" width="1.2" height="0.9" depth="0.04" color="#5d4037"
-           click-message="text: A painting of a stormy sea. On the corner is written: 'Combine all clues to escape.'">
-      <a-plane position="0 0 0.025" width="1.1" height="0.8" color="#00838f"></a-plane>
-    </a-box>
-
-
-    <!-- Exit Door (Left Wall) -->
-    <a-entity position="-3.9 0 0" rotation="0 90 0">
-      <!-- Door Frame -->
-      <a-box position="0 1.3 0" width="1.5" height="2.6" depth="0.1" color="#212121"></a-box>
-      <!-- Interactive Door Mesh -->
-      <a-box id="door-mesh" class="clickable" position="0.65 1.25 0.02" width="1.3" height="2.4" depth="0.08" color="#424242"
-             keypad-trigger="type: door">
-        <!-- Door Handle -->
-        <a-sphere position="-0.5 0 0.08" radius="0.06" color="#ffb300"></a-sphere>
-      </a-box>
-
-      <!-- Keypad Panel next to Door -->
-      <a-box id="door-keypad-panel" class="clickable" position="-0.9 1.4 0.08" width="0.3" height="0.4" depth="0.05" color="#111111"
-             keypad-trigger="type: door">
-        <!-- Screen indicator -->
-        <a-plane position="0 0.12 0.03" width="0.22" height="0.1" color="#00e676"></a-plane>
-        <!-- Buttons simulation -->
-        <a-box position="0 -0.08 0.03" width="0.2" height="0.18" depth="0.01" color="#333333"></a-box>
-      </a-box>
-    </a-entity>
-
-  </a-scene>
-
 </body>
 </html>
