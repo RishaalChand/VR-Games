@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>3D Escape Room - Pure Three.js</title>
+  <title>3D Multi-Room Escape Room - Pure Three.js</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -18,7 +18,7 @@
       overflow: hidden;
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       user-select: none;
-      background-color: #0f172a;
+      background-color: #020617;
     }
     #canvas-container {
       width: 100vw;
@@ -26,15 +26,14 @@
       display: block;
     }
     .modal-backdrop {
-      background: rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(8px);
+      background: rgba(2, 6, 23, 0.88);
+      backdrop-filter: blur(10px);
     }
-    .custom-scrollbar::-webkit-scrollbar {
-      width: 6px;
+    .room-btn {
+      transition: all 0.2s ease-in-out;
     }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: #475569;
-      border-radius: 4px;
+    .room-btn:hover {
+      transform: translateY(-2px);
     }
   </style>
 </head>
@@ -45,88 +44,123 @@
   <!-- HUD Overlay -->
   <div id="hud-overlay" class="fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-4 sm:p-6">
     
-    <!-- Top Bar: Game Title & Inventory -->
+    <!-- Top Bar: Title & Inventory -->
     <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
       
-      <!-- Title & Objectives Box -->
+      <!-- Room Title & Objectives -->
       <div class="bg-slate-900/90 border border-slate-700/80 p-4 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto max-w-sm">
         <div class="flex items-center gap-2 mb-1">
-          <span class="text-xl">🗝️</span>
-          <h1 class="font-bold text-amber-400 text-base sm:text-lg">Escape Room: Mystery Chamber</h1>
+          <span class="text-xl" id="room-badge-icon">🏛️</span>
+          <h1 id="room-badge-title" class="font-bold text-amber-400 text-base sm:text-lg">Room 1: The Study</h1>
         </div>
         <p id="objective-text" class="text-xs text-slate-300 leading-relaxed">
-          Search the room for clues. Inspect objects, find items, and discover the 4-digit master code to unlock the exit door!
+          Search the room, inspect the bookshelf, and discover the 4-digit passcode to unlock the door to the Secret Vault!
         </p>
       </div>
 
       <!-- Inventory System -->
-      <div class="bg-slate-900/90 border border-slate-700/80 p-4 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto min-w-[200px] max-w-xs">
+      <div class="bg-slate-900/90 border border-slate-700/80 p-4 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto min-w-[220px] max-w-xs">
         <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
           <span>Inventory</span>
           <span id="inventory-count" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">0 items</span>
         </div>
-        <div id="inventory-list" class="flex flex-wrap gap-2 min-h-[32px] items-center">
+        <div id="inventory-list" class="flex flex-wrap gap-2 min-h-[36px] items-center">
           <span class="text-xs text-slate-500 italic">No items collected</span>
         </div>
       </div>
 
     </div>
 
-    <!-- Center Interaction Tooltip / Notification -->
-    <div id="notification-banner" class="self-center bg-slate-900/95 border border-amber-500/40 text-amber-300 font-medium px-6 py-3 rounded-full shadow-2xl transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-none text-center text-sm max-w-md">
-      <span id="notification-text">Welcome! Click on objects to inspect them.</span>
+    <!-- Center Interactive Notification Banner -->
+    <div id="notification-banner" class="self-center bg-slate-900/95 border border-amber-500/40 text-amber-300 font-medium px-6 py-3 rounded-full shadow-2xl transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-none text-center text-sm max-w-lg">
+      <span id="notification-text">Welcome to the Mystery Chamber! Click objects to interact.</span>
     </div>
 
-    <!-- Controls Guidance Footer -->
-    <div class="self-center bg-slate-900/90 border border-slate-700/80 px-5 py-2.5 rounded-full text-xs text-slate-300 pointer-events-auto shadow-xl text-center flex items-center gap-3">
-      <span>🖱️ <b>Rotate:</b> Drag Left Click</span>
-      <span class="text-slate-600">|</span>
-      <span>🔍 <b>Zoom:</b> Scroll</span>
-      <span class="text-slate-600">|</span>
-      <span>✨ <b>Interact:</b> Click Objects</span>
+    <!-- Navigation & Controls Footer -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pointer-events-auto">
+      <!-- Controls Hint -->
+      <div class="bg-slate-900/90 border border-slate-700/80 px-5 py-2.5 rounded-full text-xs text-slate-300 shadow-xl flex items-center gap-3">
+        <span>🖱️ <b>Rotate:</b> Left Drag</span>
+        <span class="text-slate-600">|</span>
+        <span>🔍 <b>Zoom:</b> Scroll</span>
+        <span class="text-slate-600">|</span>
+        <span>✨ <b>Click:</b> Interact / Move</span>
+      </div>
+
+      <!-- Quick Room Switcher (Available once door is unlocked) -->
+      <div id="room-nav-container" class="hidden flex gap-2">
+        <button onclick="transitionToRoom(1)" class="room-btn bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs shadow-lg">
+          🚪 Go to Room 1 (Study)
+        </button>
+        <button onclick="transitionToRoom(2)" class="room-btn bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-lg">
+          🔐 Go to Room 2 (Vault)
+        </button>
+      </div>
     </div>
 
   </div>
 
-  <!-- Interactive Inspector / Clue Dialog Modal -->
+  <!-- Inspection / Text Dialog Modal -->
   <div id="inspect-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md shadow-2xl text-center transform transition-all scale-100">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md shadow-2xl text-center">
       <div id="inspect-icon" class="text-4xl mb-3">🔍</div>
       <h2 id="inspect-title" class="text-xl font-bold text-amber-400 mb-2">Object Name</h2>
-      <p id="inspect-description" class="text-sm text-slate-300 mb-6 leading-relaxed">Object detailed description goes here.</p>
+      <p id="inspect-description" class="text-sm text-slate-300 mb-6 leading-relaxed">Object details go here.</p>
       
       <div id="inspect-actions" class="flex justify-center gap-3">
-        <button id="inspect-close-btn" onclick="closeInspectModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-2.5 rounded-xl text-sm font-semibold transition">
+        <button onclick="closeInspectModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-2.5 rounded-xl text-sm font-semibold transition">
           Close
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Red Box Combination Keypad Modal -->
+  <!-- Special Quote Reveal Modal (Philosopher's Journal) -->
+  <div id="quote-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
+    <div class="bg-slate-900 border border-amber-500/60 rounded-3xl p-8 w-full max-w-lg shadow-2xl text-center relative overflow-hidden">
+      <div class="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+      <div class="text-5xl mb-3">📜</div>
+      <h2 class="text-xl font-bold text-amber-400 mb-1">Philosopher's Journal</h2>
+      <p class="text-xs text-slate-400 mb-6">A secret mechanism clicked as you pulled the book!</p>
+      
+      <blockquote class="bg-slate-950/80 border-l-4 border-amber-500 p-4 rounded-r-2xl italic text-amber-200 text-base mb-6 text-left shadow-inner">
+        "In the heart of darkness, truth shines brightest — <span class="font-bold underline text-amber-400">7429</span>"
+      </blockquote>
+
+      <p class="text-xs text-slate-300 mb-6 leading-relaxed">
+        This legendary quote seems to reveal the master passcode to the main doorway!
+      </p>
+
+      <button onclick="closeQuoteModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-8 py-3 rounded-xl text-sm transition shadow-lg">
+        Keep In Mind
+      </button>
+    </div>
+  </div>
+
+  <!-- Red Lockbox Keypad Modal -->
   <div id="redbox-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
     <div class="bg-slate-900 border border-rose-900/80 rounded-3xl p-6 w-full max-w-xs shadow-2xl text-center">
       <div class="text-3xl mb-1">📦</div>
-      <h2 class="text-lg font-bold text-rose-400 mb-1">Red Box Combination</h2>
-      <p class="text-xs text-slate-400 mb-4">Enter 3-Digit Pin (Check Secret Book)</p>
+      <h2 class="text-lg font-bold text-rose-400 mb-1">Red Box Pin</h2>
+      <p class="text-xs text-slate-400 mb-4">Enter 3-Digit Code (Check Secret Book)</p>
       
       <div id="redbox-display" class="bg-slate-950 font-mono text-2xl tracking-[0.4em] text-rose-400 py-3 rounded-xl mb-4 border border-rose-950 shadow-inner">
         ___
       </div>
 
       <div class="grid grid-cols-3 gap-2 mb-4">
-        <button onclick="pressRedBoxDigit('1')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">1</button>
-        <button onclick="pressRedBoxDigit('2')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">2</button>
-        <button onclick="pressRedBoxDigit('3')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">3</button>
-        <button onclick="pressRedBoxDigit('4')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">4</button>
-        <button onclick="pressRedBoxDigit('5')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">5</button>
-        <button onclick="pressRedBoxDigit('6')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">6</button>
-        <button onclick="pressRedBoxDigit('7')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">7</button>
-        <button onclick="pressRedBoxDigit('8')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">8</button>
-        <button onclick="pressRedBoxDigit('9')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">9</button>
-        <button onclick="clearRedBoxCode()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold py-3 rounded-xl text-xs transition">CLR</button>
-        <button onclick="pressRedBoxDigit('0')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">0</button>
-        <button onclick="submitRedBoxCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs transition">OK</button>
+        <button onclick="pressRedBoxDigit('1')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">1</button>
+        <button onclick="pressRedBoxDigit('2')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">2</button>
+        <button onclick="pressRedBoxDigit('3')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">3</button>
+        <button onclick="pressRedBoxDigit('4')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">4</button>
+        <button onclick="pressRedBoxDigit('5')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">5</button>
+        <button onclick="pressRedBoxDigit('6')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">6</button>
+        <button onclick="pressRedBoxDigit('7')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">7</button>
+        <button onclick="pressRedBoxDigit('8')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">8</button>
+        <button onclick="pressRedBoxDigit('9')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">9</button>
+        <button onclick="clearRedBoxCode()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold py-3 rounded-xl text-xs">CLR</button>
+        <button onclick="pressRedBoxDigit('0')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">0</button>
+        <button onclick="submitRedBoxCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs">OK</button>
       </div>
 
       <button onclick="closeRedBoxModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 py-2 rounded-xl text-xs font-semibold">
@@ -139,26 +173,26 @@
   <div id="keypad-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
     <div class="bg-slate-900 border border-emerald-900/80 rounded-3xl p-6 w-full max-w-xs shadow-2xl text-center">
       <div class="text-3xl mb-1">🔐</div>
-      <h2 class="text-lg font-bold text-emerald-400 mb-1">Exit Security Keypad</h2>
-      <p class="text-xs text-slate-400 mb-4">Enter 4-Digit Master Code</p>
+      <h2 class="text-lg font-bold text-emerald-400 mb-1">Door Keypad</h2>
+      <p class="text-xs text-slate-400 mb-4">Enter 4-Digit Passcode</p>
       
       <div id="keypad-display" class="bg-slate-950 font-mono text-2xl tracking-[0.4em] text-emerald-400 py-3 rounded-xl mb-4 border border-emerald-950 shadow-inner">
         ____
       </div>
 
       <div class="grid grid-cols-3 gap-2 mb-4">
-        <button onclick="pressKeypadDigit('1')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">1</button>
-        <button onclick="pressKeypadDigit('2')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">2</button>
-        <button onclick="pressKeypadDigit('3')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">3</button>
-        <button onclick="pressKeypadDigit('4')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">4</button>
-        <button onclick="pressKeypadDigit('5')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">5</button>
-        <button onclick="pressKeypadDigit('6')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">6</button>
-        <button onclick="pressKeypadDigit('7')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">7</button>
-        <button onclick="pressKeypadDigit('8')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">8</button>
-        <button onclick="pressKeypadDigit('9')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">9</button>
-        <button onclick="clearKeypadCode()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold py-3 rounded-xl text-xs transition">CLR</button>
-        <button onclick="pressKeypadDigit('0')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">0</button>
-        <button onclick="submitKeypadCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs transition">OK</button>
+        <button onclick="pressKeypadDigit('1')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">1</button>
+        <button onclick="pressKeypadDigit('2')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">2</button>
+        <button onclick="pressKeypadDigit('3')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">3</button>
+        <button onclick="pressKeypadDigit('4')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">4</button>
+        <button onclick="pressKeypadDigit('5')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">5</button>
+        <button onclick="pressKeypadDigit('6')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">6</button>
+        <button onclick="pressKeypadDigit('7')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">7</button>
+        <button onclick="pressKeypadDigit('8')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">8</button>
+        <button onclick="pressKeypadDigit('9')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">9</button>
+        <button onclick="clearKeypadCode()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold py-3 rounded-xl text-xs">CLR</button>
+        <button onclick="pressKeypadDigit('0')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">0</button>
+        <button onclick="submitKeypadCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs">OK</button>
       </div>
 
       <button onclick="closeKeypadModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 py-2 rounded-xl text-xs font-semibold">
@@ -167,13 +201,13 @@
     </div>
   </div>
 
-  <!-- Victory Screen Overlay -->
+  <!-- Final Victory Modal -->
   <div id="victory-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center modal-backdrop p-4">
-    <div class="bg-slate-900 border border-emerald-500/50 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center animate-bounce-short">
-      <div class="text-6xl mb-3">🎉</div>
+    <div class="bg-slate-900 border border-emerald-500/50 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center">
+      <div class="text-6xl mb-3">🏆</div>
       <h2 class="text-3xl font-black text-amber-400 mb-2">YOU ESCAPED!</h2>
       <p class="text-sm text-slate-300 mb-6 leading-relaxed">
-        Fantastic job! You solved all the room's puzzles, found the key, and unlocked the exit door safely.
+        Brilliant work! You solved both rooms, uncovered the Philosopher's quote, and unlocked the Secret Vault exit!
       </p>
       <button onclick="window.location.reload()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-3.5 rounded-2xl shadow-lg transition transform active:scale-95">
         Play Again
@@ -183,7 +217,7 @@
 
   <script>
     // ==========================================
-    // AUDIO SYNTHESIZER (No External Audio Files)
+    // AUDIO ENGINE (Pure Web Audio API)
     // ==========================================
     const AudioEngine = {
       ctx: null,
@@ -211,6 +245,22 @@
         osc.start();
         osc.stop(this.ctx.currentTime + 0.05);
       },
+      playBookPull() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.linearRampToValueAtTime(350, now + 0.25);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.25);
+      },
       playPickup() {
         this.init();
         if (!this.ctx) return;
@@ -227,6 +277,23 @@
         osc.start();
         osc.stop(now + 0.12);
       },
+      playDoorCreak() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.linearRampToValueAtTime(180, now + 0.5);
+        osc.frequency.linearRampToValueAtTime(90, now + 0.9);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.9);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.9);
+      },
       playUnlock() {
         this.init();
         if (!this.ctx) return;
@@ -234,9 +301,9 @@
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, now); // C5
-        osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
-        osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.1);
+        osc.frequency.setValueAtTime(783.99, now + 0.2);
         gain.gain.setValueAtTime(0.2, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
         osc.connect(gain);
@@ -266,10 +333,13 @@
     // GAME STATE & INVENTORY SYSTEM
     // ==========================================
     const GameState = {
+      currentRoom: 1,
       inventory: [],
       redBoxUnlocked: false,
       sphereUnlocked: false,
       doorUnlocked: false,
+      vaultUnlocked: false,
+      specialBookPulled: false,
       redBoxCode: "314",
       masterDoorCode: "7429",
 
@@ -278,7 +348,7 @@
           this.inventory.push(item);
           AudioEngine.playPickup();
           this.updateInventoryUI();
-          showNotification(`Picked up: ${item}`);
+          showNotification(`Collected: ${item}`);
           return true;
         }
         return false;
@@ -301,7 +371,7 @@
         }
 
         list.innerHTML = this.inventory.map(item => `
-          <div class="bg-indigo-600/90 text-white text-xs font-semibold px-3 py-1 rounded-full border border-indigo-400/30 shadow flex items-center gap-1.5 animate-fade-in">
+          <div class="bg-indigo-600/90 text-white text-xs font-semibold px-2.5 py-1 rounded-full border border-indigo-400/30 shadow flex items-center gap-1">
             <span>✨</span>
             <span>${item}</span>
           </div>
@@ -309,7 +379,7 @@
       }
     };
 
-    // HUD Notification Manager
+    // Notification HUD Banner
     let notifTimer = null;
     function showNotification(msg) {
       const banner = document.getElementById('notification-banner');
@@ -327,7 +397,7 @@
       }, 3500);
     }
 
-    // Modal Inspectors & Actions
+    // Inspection Dialog Modal
     function showInspectModal(icon, title, description, actionText = null, actionCallback = null) {
       AudioEngine.playClick();
       document.getElementById('inspect-icon').innerText = icon;
@@ -336,14 +406,14 @@
 
       const actionsContainer = document.getElementById('inspect-actions');
       actionsContainer.innerHTML = `
-        <button onclick="closeInspectModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-2 rounded-xl text-sm font-semibold transition">
+        <button onclick="closeInspectModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-2 rounded-xl text-sm font-semibold">
           Close
         </button>
       `;
 
       if (actionText && actionCallback) {
         const actionBtn = document.createElement('button');
-        actionBtn.className = "bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-2 rounded-xl text-sm font-extrabold transition shadow-lg";
+        actionBtn.className = "bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-2 rounded-xl text-sm font-extrabold shadow-lg";
         actionBtn.innerText = actionText;
         actionBtn.onclick = () => {
           closeInspectModal();
@@ -360,11 +430,16 @@
       document.getElementById('inspect-modal').classList.add('hidden');
     }
 
-    // Red Box Modal Controls
+    function closeQuoteModal() {
+      AudioEngine.playClick();
+      document.getElementById('quote-modal').classList.add('hidden');
+    }
+
+    // Red Lockbox Modal Logic
     let currentRedBoxCode = "";
     function openRedBoxModal() {
       if (GameState.redBoxUnlocked) {
-        showInspectModal("📦", "Red Box", "The Red Box is already open. Inside was the Golden Key.");
+        showInspectModal("📦", "Red Box", "The box is open. Inside was the Golden Key.");
         return;
       }
       currentRedBoxCode = "";
@@ -401,26 +476,23 @@
         GameState.redBoxUnlocked = true;
         closeRedBoxModal();
         
-        // Animate Box Lid opening in Three.js
-        if (redBoxLid) {
-          redBoxLid.rotation.x = -Math.PI * 0.65;
-        }
+        if (redBoxLid) redBoxLid.rotation.x = -Math.PI * 0.65;
 
         GameState.addItem("Golden Key");
-        showInspectModal("🔑", "Red Box Unlocked!", "You typed the correct combination (314)! The lockbox opens, revealing a Golden Key!");
+        showInspectModal("🔑", "Red Box Unlocked!", "Combination accepted! The box pops open to reveal a Golden Key!");
       } else {
         AudioEngine.playError();
-        showNotification("Incorrect Combination Code! Check the Secret Book.");
+        showNotification("Incorrect Code! Check the Secret Book on the table.");
         currentRedBoxCode = "";
         updateRedBoxDisplay();
       }
     }
 
-    // Master Keypad Modal Controls
+    // Master Keypad Modal Logic
     let currentDoorCode = "";
     function openKeypadModal() {
       if (GameState.doorUnlocked) {
-        showNotification("The door is already unlocked! Click the door handle to exit.");
+        showNotification("Door is already unlocked! Click on the doorway to pass into Room 2.");
         return;
       }
       currentDoorCode = "";
@@ -454,41 +526,50 @@
     function submitKeypadCode() {
       if (currentDoorCode === GameState.masterDoorCode) {
         AudioEngine.playUnlock();
+        AudioEngine.playDoorCreak();
         GameState.doorUnlocked = true;
         closeKeypadModal();
         
-        // Animate Door opening
-        if (doorGroup) {
-          doorGroup.rotation.y = -Math.PI * 0.45;
-        }
+        // Open door leaf
+        if (doorGroup) doorGroup.rotation.y = -Math.PI * 0.5;
 
-        showNotification("Door Unlocked! Click the door to escape!");
+        // Show room navigation button
+        document.getElementById('room-nav-container').classList.remove('hidden');
+
+        showInspectModal(
+          "🚪",
+          "Passcode Accepted!",
+          "The heavy door mechanism unlocks and swings open into Room 2 (The Secret Vault)! Click the doorway or the 'Go to Room 2' button to enter.",
+          "Enter Room 2",
+          () => transitionToRoom(2)
+        );
       } else {
         AudioEngine.playError();
-        showNotification("Access Denied! Incorrect Master Passcode.");
+        showNotification("Access Denied! Passcode incorrect.");
         currentDoorCode = "";
         updateDoorKeypadDisplay();
       }
     }
 
     // ==========================================
-    // THREE.JS SETUP & SCENE CREATION
+    // THREE.JS SCENE, CAMERAS, & LIGHTING
     // ==========================================
     let scene, camera, renderer, controls;
     let raycaster, mouse;
     let interactiveObjects = [];
-    let redBoxLid, doorGroup;
+    let redBoxLid, doorGroup, vaultDoorGroup;
     let hoveredObject = null;
+    let philosopherBookMesh = null;
 
     function init3D() {
       const container = document.getElementById('canvas-container');
 
-      // 1. Scene
+      // 1. Scene setup
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0a0f1d);
-      scene.fog = new THREE.FogExp2(0x0a0f1d, 0.04);
+      scene.background = new THREE.Color(0x020617);
+      scene.fog = new THREE.FogExp2(0x020617, 0.035);
 
-      // 2. Camera
+      // 2. Camera setup
       camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
       camera.position.set(0, 2.2, 4.2);
 
@@ -504,333 +585,474 @@
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
-      controls.maxPolarAngle = Math.PI / 2 + 0.05; // Prevent camera going below floor
-      controls.minDistance = 1.5;
-      controls.maxDistance = 6.5;
+      controls.maxPolarAngle = Math.PI / 2 + 0.05;
+      controls.minDistance = 1.2;
+      controls.maxDistance = 8;
       controls.target.set(0, 1.5, -0.5);
 
       // 5. Lighting
-      const ambientLight = new THREE.AmbientLight(0xd1e8ff, 0.6);
+      const ambientLight = new THREE.AmbientLight(0xc7d2fe, 0.55);
       scene.add(ambientLight);
 
-      const mainLight = new THREE.SpotLight(0xffecd1, 1.8);
-      mainLight.position.set(0, 3.8, 0);
-      mainLight.angle = Math.PI / 3;
-      mainLight.penumbra = 0.4;
-      mainLight.castShadow = true;
-      mainLight.shadow.mapSize.width = 1024;
-      mainLight.shadow.mapSize.height = 1024;
-      scene.add(mainLight);
+      // Room 1 SpotLight
+      const room1Light = new THREE.SpotLight(0xffedd5, 1.6);
+      room1Light.position.set(0, 3.8, 0);
+      room1Light.angle = Math.PI / 3;
+      room1Light.penumbra = 0.4;
+      room1Light.castShadow = true;
+      scene.add(room1Light);
 
-      const warmLamp = new THREE.PointLight(0xffb74d, 0.8, 6);
-      warmLamp.position.set(-2, 2.2, -2);
-      scene.add(warmLamp);
+      // Room 2 Vault SpotLight (Cyan tint)
+      const room2Light = new THREE.SpotLight(0x06b6d4, 1.8);
+      room2Light.position.set(-8, 3.8, 0);
+      room2Light.angle = Math.PI / 3;
+      room2Light.penumbra = 0.3;
+      room2Light.castShadow = true;
+      scene.add(room2Light);
 
-      // 6. Build Room Environment
-      buildRoom();
+      // 6. Build Both Rooms
+      buildRoom1();
+      buildRoom2Vault();
 
-      // 7. Raycaster for Interactions
+      // 7. Raycaster setup
       raycaster = new THREE.Raycaster();
       mouse = new THREE.Vector2();
 
-      // Event Listeners
+      // Window & Pointer Listeners
       window.addEventListener('resize', onWindowResize);
       renderer.domElement.addEventListener('pointermove', onPointerMove);
       renderer.domElement.addEventListener('pointerdown', onPointerDown);
 
-      // Start Render Loop
+      // Start Rendering Loop
       animate();
     }
 
-    // Helper for adding clickable objects
     function registerInteractive(mesh, name, onInteract) {
-      mesh.userData = { name, onInteract, originalEmissive: mesh.material.emissive ? mesh.material.emissive.getHex() : 0x000000 };
+      mesh.userData = { 
+        name, 
+        onInteract, 
+        originalEmissive: mesh.material.emissive ? mesh.material.emissive.getHex() : 0x000000 
+      };
       interactiveObjects.push(mesh);
     }
 
-    function buildRoom() {
-      // Room Dimensions: 8x8x4
-      const roomWidth = 8, roomDepth = 8, roomHeight = 4;
+    // ==========================================
+    // ROOM 1 CONSTRUCTION (THE STUDY)
+    // ==========================================
+    function buildRoom1() {
+      const roomW = 8, roomD = 8, roomH = 4;
 
-      // Floor (Wood Pattern)
-      const floorGeo = new THREE.PlaneGeometry(roomWidth, roomDepth);
-      const floorMat = new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.6 });
+      // Floor
+      const floorGeo = new THREE.PlaneGeometry(roomW, roomD);
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0x331e11, roughness: 0.6 });
       const floor = new THREE.Mesh(floorGeo, floorMat);
       floor.rotation.x = -Math.PI / 2;
       floor.receiveShadow = true;
       scene.add(floor);
 
       // Ceiling
-      const ceilingGeo = new THREE.PlaneGeometry(roomWidth, roomDepth);
-      const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+      const ceilingGeo = new THREE.PlaneGeometry(roomW, roomD);
+      const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
       const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat);
-      ceiling.position.y = roomHeight;
+      ceiling.position.y = roomH;
       ceiling.rotation.x = Math.PI / 2;
       scene.add(ceiling);
 
-      // Wall Material
       const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
 
-      // Back Wall (North)
-      const wallNorth = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth, roomHeight), wallMat);
-      wallNorth.position.set(0, roomHeight / 2, -roomDepth / 2);
+      // North Wall
+      const wallNorth = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomH), wallMat);
+      wallNorth.position.set(0, roomH / 2, -roomD / 2);
       scene.add(wallNorth);
 
       // South Wall
-      const wallSouth = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth, roomHeight), wallMat);
-      wallSouth.position.set(0, roomHeight / 2, roomDepth / 2);
+      const wallSouth = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomH), wallMat);
+      wallSouth.position.set(0, roomH / 2, roomD / 2);
       wallSouth.rotation.y = Math.PI;
       scene.add(wallSouth);
 
       // East Wall
-      const wallEast = new THREE.Mesh(new THREE.PlaneGeometry(roomDepth, roomHeight), wallMat);
-      wallEast.position.set(roomWidth / 2, roomHeight / 2, 0);
+      const wallEast = new THREE.Mesh(new THREE.PlaneGeometry(roomD, roomH), wallMat);
+      wallEast.position.set(roomW / 2, roomH / 2, 0);
       wallEast.rotation.y = -Math.PI / 2;
       scene.add(wallEast);
 
-      // West Wall (Door side)
-      const wallWest = new THREE.Mesh(new THREE.PlaneGeometry(roomDepth, roomHeight), wallMat);
-      wallWest.position.set(-roomWidth / 2, roomHeight / 2, 0);
-      wallWest.rotation.y = Math.PI / 2;
-      scene.add(wallWest);
+      // West Wall (Partition with Doorway to Room 2)
+      const wallWestNorth = new THREE.Mesh(new THREE.PlaneGeometry(3, roomH), wallMat);
+      wallWestNorth.position.set(-roomW / 2, roomH / 2, -2.5);
+      wallWestNorth.rotation.y = Math.PI / 2;
+      scene.add(wallWestNorth);
 
-      // Ceiling Light Fixture
-      const lampGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.2, 16);
-      const lampMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8 });
-      const lamp = new THREE.Mesh(lampGeo, lampMat);
-      lamp.position.set(0, 3.9, 0);
-      scene.add(lamp);
+      const wallWestSouth = new THREE.Mesh(new THREE.PlaneGeometry(3, roomH), wallMat);
+      wallWestSouth.position.set(-roomW / 2, roomH / 2, 2.5);
+      wallWestSouth.rotation.y = Math.PI / 2;
+      scene.add(wallWestSouth);
 
-      // --- CENTER TABLE ---
-      const tableTopGeo = new THREE.BoxGeometry(2.2, 0.1, 1.2);
-      const woodMat = new THREE.MeshStandardMaterial({ color: 0x543310, roughness: 0.7 });
-      const tableTop = new THREE.Mesh(tableTopGeo, woodMat);
+      const wallWestTop = new THREE.Mesh(new THREE.PlaneGeometry(2, 1.4), wallMat);
+      wallWestTop.position.set(-roomW / 2, 3.3, 0);
+      wallWestTop.rotation.y = Math.PI / 2;
+      scene.add(wallWestTop);
+
+      // --- CENTER TABLE & BENCH ---
+      const tableTop = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 1.2), new THREE.MeshStandardMaterial({ color: 0x543310, roughness: 0.7 }));
       tableTop.position.set(0, 0.9, -1);
       tableTop.castShadow = true;
-      tableTop.receiveShadow = true;
       scene.add(tableTop);
 
-      // Table Legs
       const legGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.9);
-      const legPositions = [
-        [-1.0, 0.45, -1.5], [1.0, 0.45, -1.5],
-        [-1.0, 0.45, -0.5], [1.0, 0.45, -0.5]
-      ];
-      legPositions.forEach(pos => {
+      const woodMat = new THREE.MeshStandardMaterial({ color: 0x3d2314 });
+      [[-1.0, 0.45, -1.5], [1.0, 0.45, -1.5], [-1.0, 0.45, -0.5], [1.0, 0.45, -0.5]].forEach(pos => {
         const leg = new THREE.Mesh(legGeo, woodMat);
         leg.position.set(...pos);
         leg.castShadow = true;
         scene.add(leg);
       });
 
-      registerInteractive(tableTop, "Wooden Table", () => {
-        showNotification("A sturdy study table with various objects on top.");
-      });
+      registerInteractive(tableTop, "Study Table", () => showNotification("A solid wooden study table holding clues."));
 
-      // --- BENCH ---
       const benchTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.5), woodMat);
       benchTop.position.set(-2.2, 0.45, -1);
-      benchTop.castShadow = true;
       scene.add(benchTop);
+      registerInteractive(benchTop, "Wooden Bench", () => showNotification("Just an empty bench."));
 
-      const benchLegGeo = new THREE.BoxGeometry(0.08, 0.45, 0.45);
-      const benchLeg1 = new THREE.Mesh(benchLegGeo, woodMat);
-      benchLeg1.position.set(-2.8, 0.225, -1);
-      const benchLeg2 = new THREE.Mesh(benchLegGeo, woodMat);
-      benchLeg2.position.set(-1.6, 0.225, -1);
-      scene.add(benchLeg1);
-      scene.add(benchLeg2);
-
-      registerInteractive(benchTop, "Wooden Bench", () => {
-        showNotification("An old wooden bench. Nothing hidden underneath.");
-      });
-
-      // --- SECRET BOOK (CLUE 1) ---
-      const bookGeo = new THREE.BoxGeometry(0.35, 0.06, 0.45);
-      const bookMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.5 });
-      const secretBook = new THREE.Mesh(bookGeo, bookMat);
+      // --- SECRET BOOK (TABLE) ---
+      const secretBook = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.06, 0.45), new THREE.MeshStandardMaterial({ color: 0x15803d }));
       secretBook.position.set(0.5, 0.98, -0.8);
       secretBook.rotation.y = -0.3;
-      secretBook.castShadow = true;
       scene.add(secretBook);
 
-      registerInteractive(secretBook, "Secret Book", () => {
-        GameState.addItem("Secret Book Note");
+      registerInteractive(secretBook, "Green Notebook", () => {
+        GameState.addItem("Secret Note");
         showInspectModal(
           "📖",
-          "Secret Leather Book",
-          "You open the book and find a handwritten note: 'The combination pin for the Red Box on this table is 3-1-4. Also, check the wall clock for the first door digits!'"
+          "Green Notebook",
+          "A note inside states: 'Red Box combination code = 314. Check the bookshelf for the philosopher's quote!'"
         );
       });
 
-      // --- RED LOCKBOX (CLUE 2) ---
+      // --- RED LOCKBOX ---
       const redBoxGroup = new THREE.Group();
       redBoxGroup.position.set(-0.6, 0.95, -1.0);
 
-      const boxBodyGeo = new THREE.BoxGeometry(0.45, 0.2, 0.35);
-      const redMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.4, metalness: 0.2 });
-      const redBoxBody = new THREE.Mesh(boxBodyGeo, redMat);
+      const redMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.4 });
+      const redBoxBody = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.2, 0.35), redMat);
       redBoxBody.position.y = 0.1;
-      redBoxBody.castShadow = true;
       redBoxGroup.add(redBoxBody);
 
-      const lidGeo = new THREE.BoxGeometry(0.46, 0.04, 0.36);
-      redBoxLid = new THREE.Mesh(lidGeo, redMat);
-      redBoxLid.position.set(0, 0.2, -0.17); // Pivot point at back
-      redBoxLid.castShadow = true;
+      redBoxLid = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.04, 0.36), redMat);
+      redBoxLid.position.set(0, 0.2, -0.17);
       redBoxGroup.add(redBoxLid);
 
       scene.add(redBoxGroup);
+      registerInteractive(redBoxBody, "Red Lockbox", openRedBoxModal);
 
-      registerInteractive(redBoxBody, "Red Box", () => {
-        openRedBoxModal();
-      });
-
-      // --- GLOWING BLUE SPHERE (CLUE 3) ---
-      const pedestalGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.8, 16);
-      const pedestalMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
-      const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
+      // --- BLUE GLOWING SPHERE ---
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.8, 16), new THREE.MeshStandardMaterial({ color: 0x334155 }));
       pedestal.position.set(2.5, 0.4, -2);
-      pedestal.castShadow = true;
       scene.add(pedestal);
 
-      const sphereGeo = new THREE.SphereGeometry(0.28, 32, 32);
-      const sphereMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, emissive: 0x1d4ed8, emissiveIntensity: 0.5, roughness: 0.2 });
-      const blueSphere = new THREE.Mesh(sphereGeo, sphereMat);
+      const sphereMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, emissive: 0x1d4ed8, emissiveIntensity: 0.5 });
+      const blueSphere = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 32), sphereMat);
       blueSphere.position.set(2.5, 1.08, -2);
-      blueSphere.castShadow = true;
       scene.add(blueSphere);
 
-      registerInteractive(blueSphere, "Blue Crystal Sphere", () => {
+      registerInteractive(blueSphere, "Glowing Blue Orb", () => {
         if (!GameState.sphereUnlocked) {
           if (GameState.hasItem("Golden Key")) {
             AudioEngine.playUnlock();
             GameState.sphereUnlocked = true;
-            GameState.addItem("Door Clue Part B");
-            sphereMat.emissive.setHex(0x10b981); // Turn green
-            showInspectModal(
-              "🔮",
-              "Crystal Sphere Unlocked!",
-              "You insert the Golden Key into the sphere base. The crystal glows green and projects two digits onto the pedestal: '...29'!"
-            );
+            GameState.addItem("Vault Power Cell");
+            sphereMat.emissive.setHex(0x10b981);
+            showInspectModal("🔮", "Orb Activated!", "You used the Golden Key! The orb glows green and unlocks a Vault Power Cell for Room 2!");
           } else {
             AudioEngine.playError();
-            showInspectModal(
-              "🔮",
-              "Locked Blue Sphere",
-              "The sphere is locked inside a magnetic forcefield. It has a small keyhole that requires a Golden Key."
-            );
+            showInspectModal("🔮", "Locked Orb", "Requires a Golden Key from the Red Box to unlock its power cell.");
           }
         } else {
-          showNotification("The Blue Sphere projected digits '...29'.");
+          showNotification("Orb power cell has already been collected.");
         }
       });
 
-      // --- WALL CLOCK (CLUE HINT) ---
+      // --- WALL CLOCK ---
       const clockGroup = new THREE.Group();
       clockGroup.position.set(-1.8, 2.6, -3.92);
-
-      const clockFrameGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.05, 32);
-      const clockFrameMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
-      const clockFrame = new THREE.Mesh(clockFrameGeo, clockFrameMat);
+      const clockFrame = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.05, 32), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
       clockFrame.rotation.x = Math.PI / 2;
       clockGroup.add(clockFrame);
 
-      // Hands pointing to 7:42
       const handMat = new THREE.MeshBasicMaterial({ color: 0x090d16 });
-      const hourHand = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.22, 0.02), handMat);
-      hourHand.position.set(-0.08, -0.05, 0.03);
-      hourHand.rotation.z = 2.2;
-      clockGroup.add(hourHand);
+      const hHand = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.22, 0.02), handMat);
+      hHand.position.set(-0.08, -0.05, 0.03);
+      hHand.rotation.z = 2.2;
+      clockGroup.add(hHand);
 
-      const minuteHand = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.32, 0.02), handMat);
-      minuteHand.position.set(0.1, 0.05, 0.03);
-      minuteHand.rotation.z = -1.2;
-      clockGroup.add(minuteHand);
+      const mHand = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.32, 0.02), handMat);
+      mHand.position.set(0.1, 0.05, 0.03);
+      mHand.rotation.z = -1.2;
+      clockGroup.add(mHand);
 
       scene.add(clockGroup);
-
       registerInteractive(clockFrame, "Wall Clock", () => {
-        GameState.addItem("Clock Clue Part A");
-        showInspectModal(
-          "🕰️",
-          "Stopped Wall Clock",
-          "The clock hands are frozen precisely at 7:42. These numbers ('74...') form the first two digits of the Exit Door master code!"
-        );
+        showInspectModal("🕰️", "Stopped Clock", "The hands are frozen at 7:42. A clue to the room passcode!");
       });
 
-      // --- PAINTING FRAME ---
-      const pictureGeo = new THREE.BoxGeometry(1.4, 1.0, 0.04);
-      const pictureMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.8 });
-      const frameMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 });
-      const frame = new THREE.Mesh(pictureGeo, frameMat);
-      frame.position.set(1.8, 2.5, -3.92);
+      // --- LARGE BOOKSHELF WITH DOZENS OF BOOKS ---
+      buildBookshelf();
 
-      const canvasPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), pictureMat);
-      canvasPlane.position.set(1.8, 2.5, -3.89);
-      scene.add(frame);
-      scene.add(canvasPlane);
-
-      registerInteractive(frame, "Seascape Painting", () => {
-        showNotification("A peaceful painting of an ocean. A tiny scribble reads: 'Combine Clock + Sphere clues'.");
-      });
-
-      // --- EXIT DOOR & KEYPAD (WEST WALL) ---
+      // --- MAIN DOORWAY TO ROOM 2 ---
       doorGroup = new THREE.Group();
-      doorGroup.position.set(-3.9, 0, 0); // Pivot hinge point
+      doorGroup.position.set(-3.95, 0, -1.0); // Door hinge
 
-      // Door Frame
-      const doorFrameGeo = new THREE.BoxGeometry(0.1, 2.6, 1.4);
-      const frameMesh = new THREE.Mesh(doorFrameGeo, new THREE.MeshStandardMaterial({ color: 0x0f172a }));
-      doorFrameGeo.translate(0, 1.3, 0);
-      scene.add(frameMesh);
+      const doorLeaf = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.5, 1.25), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4 }));
+      doorLeaf.position.set(0, 1.25, 0.625);
+      doorGroup.add(doorLeaf);
 
-      // Interactive Door Leaf
-      const doorLeafGeo = new THREE.BoxGeometry(0.08, 2.45, 1.25);
-      const doorMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
-      const doorMesh = new THREE.Mesh(doorLeafGeo, doorMat);
-      doorMesh.position.set(0, 1.225, 0.625);
-      doorMesh.castShadow = true;
-      doorGroup.add(doorMesh);
-
-      // Handle Knob
-      const knobGeo = new THREE.SphereGeometry(0.06, 16, 16);
-      const knobMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8 });
-      const knob = new THREE.Mesh(knobGeo, knobMat);
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8 }));
       knob.position.set(0.08, 1.1, 1.1);
       doorGroup.add(knob);
 
       scene.add(doorGroup);
 
-      registerInteractive(doorMesh, "Exit Door", () => {
+      registerInteractive(doorLeaf, "Door to Room 2", () => {
         if (!GameState.doorUnlocked) {
           openKeypadModal();
         } else {
-          AudioEngine.playUnlock();
-          document.getElementById('victory-modal').classList.remove('hidden');
+          transitionToRoom(2);
         }
       });
 
-      // Keypad Box mounted on wall next to door
-      const keypadBoxGeo = new THREE.BoxGeometry(0.06, 0.4, 0.28);
-      const keypadMat = new THREE.MeshStandardMaterial({ color: 0x020617 });
-      const keypadBox = new THREE.Mesh(keypadBoxGeo, keypadMat);
-      keypadBox.position.set(-3.9, 1.4, -0.9);
+      // Keypad Panel on West Wall
+      const keypadBox = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.4, 0.28), new THREE.MeshStandardMaterial({ color: 0x020617 }));
+      keypadBox.position.set(-3.92, 1.4, -1.8);
       scene.add(keypadBox);
 
-      const keypadScreenGeo = new THREE.PlaneGeometry(0.2, 0.1);
-      const keypadScreenMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
-      const keypadScreen = new THREE.Mesh(keypadScreenGeo, keypadScreenMat);
-      keypadScreen.position.set(-3.86, 1.5, -0.9);
-      keypadScreen.rotation.y = Math.PI / 2;
-      scene.add(keypadScreen);
+      registerInteractive(keypadBox, "Door Keypad Panel", openKeypadModal);
+    }
 
-      registerInteractive(keypadBox, "Door Keypad Panel", () => {
-        openKeypadModal();
+    // ==========================================
+    // BOOKSHELF & BOOK GENERATOR
+    // ==========================================
+    function buildBookshelf() {
+      const shelfGroup = new THREE.Group();
+      shelfGroup.position.set(2.8, 0, 3.8); // East/South corner of Room 1
+      shelfGroup.rotation.y = -Math.PI / 2;
+
+      const shelfWoodMat = new THREE.MeshStandardMaterial({ color: 0x2e1809, roughness: 0.7 });
+
+      // Frame Sides & Back
+      const sideLeft = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.2, 0.5), shelfWoodMat);
+      sideLeft.position.set(-1.1, 1.6, 0);
+      shelfGroup.add(sideLeft);
+
+      const sideRight = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.2, 0.5), shelfWoodMat);
+      sideRight.position.set(1.1, 1.6, 0);
+      shelfGroup.add(sideRight);
+
+      // Horizontal Shelves
+      [0.1, 0.9, 1.7, 2.5, 3.1].forEach(y => {
+        const shelfBar = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.08, 0.48), shelfWoodMat);
+        shelfBar.position.set(0, y, 0);
+        shelfGroup.add(shelfBar);
+      });
+
+      // Populate Shelves with Dozens of Colorful Books
+      const bookColors = [0x991b1b, 0x1e3a8a, 0x065f46, 0x7c2d12, 0x4c1d95, 0x334155, 0xb45309];
+      const bookTitles = [
+        "A History of Ancient Keys", "Dusty Encyclopedia Vol. 4", "Alchemy & Metallurgy",
+        "Chronicles of the Chamber", "Starlight Navigation", "Elements of Architecture",
+        "The Lost Cipher", "Mathematical Curiosities", "Principles of Clockwork", "The Art of Lockpicking"
+      ];
+
+      let titleIdx = 0;
+      // Populate 3 shelf levels
+      [0.98, 1.78, 2.58].forEach((shelfY, shelfLevel) => {
+        let currentX = -0.95;
+        while (currentX < 0.9) {
+          const width = 0.08 + Math.random() * 0.06;
+          const height = 0.35 + Math.random() * 0.12;
+          const depth = 0.28 + Math.random() * 0.08;
+          const color = bookColors[Math.floor(Math.random() * bookColors.length)];
+
+          const isSpecial = (shelfLevel === 1 && currentX > -0.1 && currentX < 0.1 && !philosopherBookMesh);
+
+          let bookMat;
+          if (isSpecial) {
+            // Distinct Leather-Bound Philosopher's Journal
+            bookMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.3, metalness: 0.2 });
+          } else {
+            bookMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
+          }
+
+          const bookMesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), bookMat);
+          bookMesh.position.set(currentX + width / 2, shelfY + height / 2, 0);
+
+          shelfGroup.add(bookMesh);
+
+          if (isSpecial) {
+            philosopherBookMesh = bookMesh;
+            registerInteractive(bookMesh, "Philosopher's Journal", () => {
+              AudioEngine.playBookPull();
+              
+              // Animate book pulling forward
+              if (!GameState.specialBookPulled) {
+                GameState.specialBookPulled = true;
+                bookMesh.position.z += 0.15;
+              }
+
+              // Trigger Quote Reveal
+              document.getElementById('quote-modal').classList.remove('hidden');
+            });
+          } else {
+            const chosenTitle = bookTitles[titleIdx % bookTitles.length];
+            titleIdx++;
+            registerInteractive(bookMesh, chosenTitle, () => {
+              showNotification(`📖 "${chosenTitle}" — Nothing secret inside this book.`);
+            });
+          }
+
+          currentX += width + 0.02;
+        }
+      });
+
+      scene.add(shelfGroup);
+    }
+
+    // ==========================================
+    // ROOM 2 CONSTRUCTION (SECRET VAULT)
+    // ==========================================
+    function buildRoom2Vault() {
+      const roomW = 8, roomD = 8, roomH = 4;
+      const offsetX = -12; // Room 2 is positioned directly West of Room 1
+
+      // Floor (Metallic Dark Slate Grid)
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(roomW, roomD),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.3 })
+      );
+      floor.position.x = offsetX;
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      // Ceiling
+      const ceiling = new THREE.Mesh(
+        new THREE.PlaneGeometry(roomW, roomD),
+        new THREE.MeshStandardMaterial({ color: 0x020617 })
+      );
+      ceiling.position.set(offsetX, roomH, 0);
+      ceiling.rotation.x = Math.PI / 2;
+      scene.add(ceiling);
+
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
+
+      // North Wall
+      const wallNorth = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomH), wallMat);
+      wallNorth.position.set(offsetX, roomH / 2, -roomD / 2);
+      scene.add(wallNorth);
+
+      // South Wall
+      const wallSouth = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomH), wallMat);
+      wallSouth.position.set(offsetX, roomH / 2, roomD / 2);
+      wallSouth.rotation.y = Math.PI;
+      scene.add(wallSouth);
+
+      // West Wall (Final Exit)
+      const wallWest = new THREE.Mesh(new THREE.PlaneGeometry(roomD, roomH), wallMat);
+      wallWest.position.set(offsetX - roomW / 2, roomH / 2, 0);
+      wallWest.rotation.y = Math.PI / 2;
+      scene.add(wallWest);
+
+      // --- VAULT CONTAINMENT UNIT ---
+      const vaultPedestal = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.6, 0.8, 0.9, 16),
+        new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6 })
+      );
+      vaultPedestal.position.set(offsetX, 0.45, 0);
+      scene.add(vaultPedestal);
+
+      const vaultGlass = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 1.0, 16),
+        new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 })
+      );
+      vaultGlass.position.set(offsetX, 1.4, 0);
+      scene.add(vaultGlass);
+
+      // Final Master Escape Key inside Vault
+      const masterKey = new THREE.Mesh(
+        new THREE.TorusGeometry(0.15, 0.04, 16, 32),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 })
+      );
+      masterKey.position.set(offsetX, 1.4, 0);
+      scene.add(masterKey);
+
+      registerInteractive(vaultGlass, "Vault Core", () => {
+        if (!GameState.vaultUnlocked) {
+          if (GameState.hasItem("Vault Power Cell")) {
+            AudioEngine.playUnlock();
+            GameState.vaultUnlocked = true;
+            GameState.addItem("Master Vault Pass");
+            vaultGlass.material.opacity = 0.1;
+            showInspectModal("⚡", "Vault Powered Up!", "You inserted the Vault Power Cell! The forcefield retracts, giving you the Master Vault Pass!");
+          } else {
+            AudioEngine.playError();
+            showInspectModal("🔒", "Containment Vault", "Requires the Vault Power Cell from Room 1's Blue Orb to disarm the forcefield.");
+          }
+        } else {
+          showNotification("Vault forcefield is powered down.");
+        }
+      });
+
+      // --- FINAL EXIT DOOR (ROOM 2) ---
+      const exitDoorMat = new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.5 });
+      const finalExitDoor = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.8, 1.6), exitDoorMat);
+      finalExitDoor.position.set(offsetX - 3.95, 1.4, 0);
+      scene.add(finalExitDoor);
+
+      registerInteractive(finalExitDoor, "Final Escape Hatch", () => {
+        if (GameState.vaultUnlocked && GameState.hasItem("Master Vault Pass")) {
+          AudioEngine.playUnlock();
+          document.getElementById('victory-modal').classList.remove('hidden');
+        } else {
+          AudioEngine.playError();
+          showInspectModal("🚨", "Locked Hatch", "Insert the Master Vault Pass from the central containment core to exit!");
+        }
       });
     }
 
-    // Mouse Pointer Movement & Hover Effects
+    // ==========================================
+    // ROOM NAVIGATION & CAMERA TRANSITIONS
+    // ==========================================
+    function transitionToRoom(roomNum) {
+      AudioEngine.playClick();
+      GameState.currentRoom = roomNum;
+
+      const titleBadge = document.getElementById('room-badge-title');
+      const iconBadge = document.getElementById('room-badge-icon');
+      const objText = document.getElementById('objective-text');
+
+      if (roomNum === 1) {
+        titleBadge.innerText = "Room 1: The Study";
+        iconBadge.innerText = "🏛️";
+        objText.innerText = "Search the room, inspect the bookshelf, and discover the 4-digit passcode for the door!";
+        
+        // Move Camera to Room 1 Focus
+        camera.position.set(0, 2.2, 4.2);
+        controls.target.set(0, 1.5, -0.5);
+      } else if (roomNum === 2) {
+        titleBadge.innerText = "Room 2: Secret Vault";
+        iconBadge.innerText = "🔐";
+        objText.innerText = "Use the Power Cell from Room 1 to unlock the central containment vault and escape!";
+        
+        // Move Camera to Room 2 Focus
+        camera.position.set(-12, 2.2, 4.2);
+        controls.target.set(-12, 1.5, 0);
+      }
+
+      controls.update();
+      showNotification(`Entered ${roomNum === 1 ? 'Room 1 (The Study)' : 'Room 2 (Secret Vault)'}`);
+    }
+
+    // Pointer Move & Hover Effects
     function onPointerMove(event) {
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -845,7 +1067,6 @@
           hoveredObject = obj;
           document.body.style.cursor = 'pointer';
 
-          // Highlight effect
           if (obj.material && obj.material.emissive) {
             obj.material.emissive.setHex(0x38bdf8);
             obj.material.emissiveIntensity = 0.4;
@@ -868,9 +1089,8 @@
       }
     }
 
-    // Click Object Handler
+    // Pointer Click Handler
     function onPointerDown(event) {
-      // Avoid firing clicks if user is dragging camera
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(interactiveObjects);
 
@@ -888,18 +1108,13 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // Render Animation Loop
     function animate() {
       requestAnimationFrame(animate);
-
-      // Smooth Orbit Controls Update
       controls.update();
-
-      // Render Scene
       renderer.render(scene, camera);
     }
 
-    // Initialize Game Engine on Window Load
+    // Initialize 3D Engine on Window Load
     window.addEventListener('load', () => {
       init3D();
     });
