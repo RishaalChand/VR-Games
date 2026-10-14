@@ -3,14 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>3D Multi-Room Escape Room - Pure Three.js</title>
+  <title>3D Multi-Room FPS Escape Room - Pure Three.js</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Three.js & OrbitControls -->
+  <!-- Three.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
   <style>
     body {
@@ -19,6 +18,7 @@
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       user-select: none;
       background-color: #020617;
+      touch-action: none;
     }
     #canvas-container {
       width: 100vw;
@@ -29,17 +29,49 @@
       background: rgba(2, 6, 23, 0.88);
       backdrop-filter: blur(10px);
     }
-    .room-btn {
-      transition: all 0.2s ease-in-out;
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition: all 0.15s ease;
     }
-    .room-btn:hover {
-      transform: translateY(-2px);
+    .crosshair-dot {
+      width: 6px;
+      height: 6px;
+      background-color: rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(0,0,0,0.8);
+      transition: all 0.2s ease;
+    }
+    .crosshair.active .crosshair-dot {
+      background-color: #f59e0b;
+      transform: scale(2.2);
+      box-shadow: 0 0 12px #f59e0b;
+    }
+    .dpad-btn {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(4px);
+      color: white;
+      font-weight: bold;
+      touch-action: manipulation;
+    }
+    .dpad-btn:active {
+      background: rgba(245, 158, 11, 0.8);
+      color: #020617;
     }
   </style>
 </head>
 <body class="text-slate-100">
 
   <div id="canvas-container"></div>
+
+  <!-- Center FPS Crosshair -->
+  <div id="crosshair" class="crosshair z-10">
+    <div class="crosshair-dot"></div>
+  </div>
 
   <!-- HUD Overlay -->
   <div id="hud-overlay" class="fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-4 sm:p-6">
@@ -54,7 +86,7 @@
           <h1 id="room-badge-title" class="font-bold text-amber-400 text-base sm:text-lg">Room 1: The Study</h1>
         </div>
         <p id="objective-text" class="text-xs text-slate-300 leading-relaxed">
-          Search the room, inspect the bookshelf, and discover the 4-digit passcode to unlock the door to the Secret Vault!
+          Walk around using WASD or Arrow keys. Drag mouse to look around. Reach objects and click to inspect!
         </p>
       </div>
 
@@ -73,29 +105,34 @@
 
     <!-- Center Interactive Notification Banner -->
     <div id="notification-banner" class="self-center bg-slate-900/95 border border-amber-500/40 text-amber-300 font-medium px-6 py-3 rounded-full shadow-2xl transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-none text-center text-sm max-w-lg">
-      <span id="notification-text">Welcome to the Mystery Chamber! Click objects to interact.</span>
+      <span id="notification-text">Welcome! Use WASD to walk, Drag to look around.</span>
     </div>
 
-    <!-- Navigation & Controls Footer -->
-    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pointer-events-auto">
-      <!-- Controls Hint -->
-      <div class="bg-slate-900/90 border border-slate-700/80 px-5 py-2.5 rounded-full text-xs text-slate-300 shadow-xl flex items-center gap-3">
-        <span>🖱️ <b>Rotate:</b> Left Drag</span>
-        <span class="text-slate-600">|</span>
-        <span>🔍 <b>Zoom:</b> Scroll</span>
-        <span class="text-slate-600">|</span>
-        <span>✨ <b>Click:</b> Interact / Move</span>
+    <!-- On-Screen Controls Hint & Mobile Touch D-Pad -->
+    <div class="flex items-end justify-between w-full pointer-events-none">
+      
+      <!-- Mobile D-Pad (Visible on Touch Devices) -->
+      <div id="mobile-dpad" class="pointer-events-auto grid grid-cols-3 gap-1.5 w-36 h-36 sm:hidden">
+        <div></div>
+        <button id="btn-up" class="dpad-btn rounded-t-2xl flex items-center justify-center text-lg">▲</button>
+        <div></div>
+        <button id="btn-left" class="dpad-btn rounded-l-2xl flex items-center justify-center text-lg">◄</button>
+        <div class="dpad-btn rounded-lg bg-slate-950/60 flex items-center justify-center text-[10px] text-slate-400">MOVE</div>
+        <button id="btn-right" class="dpad-btn rounded-r-2xl flex items-center justify-center text-lg">►</button>
+        <div></div>
+        <button id="btn-down" class="dpad-btn rounded-b-2xl flex items-center justify-center text-lg">▼</button>
+        <div></div>
       </div>
 
-      <!-- Quick Room Switcher (Available once door is unlocked) -->
-      <div id="room-nav-container" class="hidden flex gap-2">
-        <button onclick="transitionToRoom(1)" class="room-btn bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs shadow-lg">
-          🚪 Go to Room 1 (Study)
-        </button>
-        <button onclick="transitionToRoom(2)" class="room-btn bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-lg">
-          🔐 Go to Room 2 (Vault)
-        </button>
+      <!-- Controls Hint Badge -->
+      <div class="hidden sm:flex bg-slate-900/90 border border-slate-700/80 px-5 py-2.5 rounded-full text-xs text-slate-300 shadow-xl items-center gap-3 pointer-events-auto">
+        <span>🎮 <b>Move:</b> WASD / Arrow Keys</span>
+        <span class="text-slate-600">|</span>
+        <span>👀 <b>Look:</b> Click & Drag Mouse</span>
+        <span class="text-slate-600">|</span>
+        <span>✨ <b>Interact:</b> Click Objects</span>
       </div>
+
     </div>
 
   </div>
@@ -128,11 +165,11 @@
       </blockquote>
 
       <p class="text-xs text-slate-300 mb-6 leading-relaxed">
-        This legendary quote seems to reveal the master passcode to the main doorway!
+        This legendary quote reveals the 4-digit passcode to the main doorway!
       </p>
 
       <button onclick="closeQuoteModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-8 py-3 rounded-xl text-sm transition shadow-lg">
-        Keep In Mind
+        Got It
       </button>
     </div>
   </div>
@@ -207,7 +244,7 @@
       <div class="text-6xl mb-3">🏆</div>
       <h2 class="text-3xl font-black text-amber-400 mb-2">YOU ESCAPED!</h2>
       <p class="text-sm text-slate-300 mb-6 leading-relaxed">
-        Brilliant work! You solved both rooms, uncovered the Philosopher's quote, and unlocked the Secret Vault exit!
+        Brilliant work! You explored both rooms, retrieved the Philosopher's quote, disarmed the vault, and escaped!
       </p>
       <button onclick="window.location.reload()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-3.5 rounded-2xl shadow-lg transition transform active:scale-95">
         Play Again
@@ -244,6 +281,22 @@
         gain.connect(this.ctx.destination);
         osc.start();
         osc.stop(this.ctx.currentTime + 0.05);
+      },
+      playFootstep() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(80 + Math.random() * 20, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.08);
       },
       playBookPull() {
         this.init();
@@ -397,9 +450,15 @@
       }, 3500);
     }
 
-    // Inspection Dialog Modal
+    // Modal Utilities
+    let isModalOpen = false;
+    function setModalActive(active) {
+      isModalOpen = active;
+    }
+
     function showInspectModal(icon, title, description, actionText = null, actionCallback = null) {
       AudioEngine.playClick();
+      setModalActive(true);
       document.getElementById('inspect-icon').innerText = icon;
       document.getElementById('inspect-title').innerText = title;
       document.getElementById('inspect-description').innerText = description;
@@ -427,11 +486,13 @@
 
     function closeInspectModal() {
       AudioEngine.playClick();
+      setModalActive(false);
       document.getElementById('inspect-modal').classList.add('hidden');
     }
 
     function closeQuoteModal() {
       AudioEngine.playClick();
+      setModalActive(false);
       document.getElementById('quote-modal').classList.add('hidden');
     }
 
@@ -442,6 +503,7 @@
         showInspectModal("📦", "Red Box", "The box is open. Inside was the Golden Key.");
         return;
       }
+      setModalActive(true);
       currentRedBoxCode = "";
       updateRedBoxDisplay();
       document.getElementById('redbox-modal').classList.remove('hidden');
@@ -449,6 +511,7 @@
 
     function closeRedBoxModal() {
       AudioEngine.playClick();
+      setModalActive(false);
       document.getElementById('redbox-modal').classList.add('hidden');
     }
 
@@ -492,9 +555,10 @@
     let currentDoorCode = "";
     function openKeypadModal() {
       if (GameState.doorUnlocked) {
-        showNotification("Door is already unlocked! Click on the doorway to pass into Room 2.");
+        showNotification("Door is unlocked! Walk right through into Room 2!");
         return;
       }
+      setModalActive(true);
       currentDoorCode = "";
       updateDoorKeypadDisplay();
       document.getElementById('keypad-modal').classList.remove('hidden');
@@ -502,6 +566,7 @@
 
     function closeKeypadModal() {
       AudioEngine.playClick();
+      setModalActive(false);
       document.getElementById('keypad-modal').classList.add('hidden');
     }
 
@@ -530,18 +595,13 @@
         GameState.doorUnlocked = true;
         closeKeypadModal();
         
-        // Open door leaf
-        if (doorGroup) doorGroup.rotation.y = -Math.PI * 0.5;
-
-        // Show room navigation button
-        document.getElementById('room-nav-container').classList.remove('hidden');
+        // Open door leaf physically
+        if (doorGroup) doorGroup.rotation.y = -Math.PI * 0.55;
 
         showInspectModal(
           "🚪",
           "Passcode Accepted!",
-          "The heavy door mechanism unlocks and swings open into Room 2 (The Secret Vault)! Click the doorway or the 'Go to Room 2' button to enter.",
-          "Enter Room 2",
-          () => transitionToRoom(2)
+          "The heavy doorway unlocks and swings open! Walk right through using WASD keys to enter Room 2 (The Secret Vault)."
         );
       } else {
         AudioEngine.playError();
@@ -554,12 +614,27 @@
     // ==========================================
     // THREE.JS SCENE, CAMERAS, & LIGHTING
     // ==========================================
-    let scene, camera, renderer, controls;
-    let raycaster, mouse;
+    let scene, camera, renderer;
+    let raycaster, centerMouse;
     let interactiveObjects = [];
-    let redBoxLid, doorGroup, vaultDoorGroup;
+    let colliders = []; // Bounding boxes for player collision
+    let redBoxLid, doorGroup;
     let hoveredObject = null;
     let philosopherBookMesh = null;
+
+    // Player FPS State
+    const player = {
+      position: new THREE.Vector3(0, 1.6, 2.5),
+      yaw: 0,
+      pitch: 0,
+      radius: 0.35,
+      speed: 4.0,
+      footstepTimer: 0
+    };
+
+    const keysPressed = {};
+    let isMouseDown = false;
+    let previousMousePosition = { x: 0, y: 0 };
 
     function init3D() {
       const container = document.getElementById('canvas-container');
@@ -569,9 +644,9 @@
       scene.background = new THREE.Color(0x020617);
       scene.fog = new THREE.FogExp2(0x020617, 0.035);
 
-      // 2. Camera setup
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-      camera.position.set(0, 2.2, 4.2);
+      // 2. FPS Camera setup
+      camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.copy(player.position);
 
       // 3. Renderer
       renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -581,16 +656,7 @@
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       container.appendChild(renderer.domElement);
 
-      // 4. Orbit Controls
-      controls = new THREE.OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.05;
-      controls.maxPolarAngle = Math.PI / 2 + 0.05;
-      controls.minDistance = 1.2;
-      controls.maxDistance = 8;
-      controls.target.set(0, 1.5, -0.5);
-
-      // 5. Lighting
+      // 4. Lighting
       const ambientLight = new THREE.AmbientLight(0xc7d2fe, 0.55);
       scene.add(ambientLight);
 
@@ -604,36 +670,40 @@
 
       // Room 2 Vault SpotLight (Cyan tint)
       const room2Light = new THREE.SpotLight(0x06b6d4, 1.8);
-      room2Light.position.set(-8, 3.8, 0);
+      room2Light.position.set(-12, 3.8, 0);
       room2Light.angle = Math.PI / 3;
       room2Light.penumbra = 0.3;
       room2Light.castShadow = true;
       scene.add(room2Light);
 
-      // 6. Build Both Rooms
+      // 5. Build Both Rooms & Colliders
       buildRoom1();
       buildRoom2Vault();
 
-      // 7. Raycaster setup
+      // 6. Raycaster for center crosshair
       raycaster = new THREE.Raycaster();
-      mouse = new THREE.Vector2();
+      centerMouse = new THREE.Vector2(0, 0);
 
-      // Window & Pointer Listeners
-      window.addEventListener('resize', onWindowResize);
-      renderer.domElement.addEventListener('pointermove', onPointerMove);
-      renderer.domElement.addEventListener('pointerdown', onPointerDown);
+      // 7. Event Listeners
+      setupInputListeners();
 
-      // Start Rendering Loop
+      // Start Rendering & Movement Loop
+      clock = new THREE.Clock();
       animate();
     }
 
-    function registerInteractive(mesh, name, onInteract) {
+    function registerInteractive(mesh, name, onInteract, maxDist = 3.5) {
       mesh.userData = { 
         name, 
         onInteract, 
+        maxDist,
         originalEmissive: mesh.material.emissive ? mesh.material.emissive.getHex() : 0x000000 
       };
       interactiveObjects.push(mesh);
+    }
+
+    function addCollider(minX, maxX, minZ, maxZ) {
+      colliders.push({ minX, maxX, minZ, maxZ });
     }
 
     // ==========================================
@@ -641,6 +711,11 @@
     // ==========================================
     function buildRoom1() {
       const roomW = 8, roomD = 8, roomH = 4;
+
+      // Outer Colliders for Room 1
+      addCollider(-4.0, 4.0, -4.1, -3.9); // North Wall
+      addCollider(-4.0, 4.0, 3.9, 4.1);   // South Wall
+      addCollider(3.9, 4.1, -4.0, 4.0);   // East Wall
 
       // Floor
       const floorGeo = new THREE.PlaneGeometry(roomW, roomD);
@@ -678,17 +753,19 @@
       scene.add(wallEast);
 
       // West Wall (Partition with Doorway to Room 2)
-      const wallWestNorth = new THREE.Mesh(new THREE.PlaneGeometry(3, roomH), wallMat);
+      const wallWestNorth = new THREE.Mesh(new THREE.PlaneGeometry(3.0, roomH), wallMat);
       wallWestNorth.position.set(-roomW / 2, roomH / 2, -2.5);
       wallWestNorth.rotation.y = Math.PI / 2;
       scene.add(wallWestNorth);
+      addCollider(-4.1, -3.9, -4.0, -1.0); // Partition North Collider
 
-      const wallWestSouth = new THREE.Mesh(new THREE.PlaneGeometry(3, roomH), wallMat);
+      const wallWestSouth = new THREE.Mesh(new THREE.PlaneGeometry(3.0, roomH), wallMat);
       wallWestSouth.position.set(-roomW / 2, roomH / 2, 2.5);
       wallWestSouth.rotation.y = Math.PI / 2;
       scene.add(wallWestSouth);
+      addCollider(-4.1, -3.9, 1.0, 4.0); // Partition South Collider
 
-      const wallWestTop = new THREE.Mesh(new THREE.PlaneGeometry(2, 1.4), wallMat);
+      const wallWestTop = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 1.4), wallMat);
       wallWestTop.position.set(-roomW / 2, 3.3, 0);
       wallWestTop.rotation.y = Math.PI / 2;
       scene.add(wallWestTop);
@@ -698,6 +775,7 @@
       tableTop.position.set(0, 0.9, -1);
       tableTop.castShadow = true;
       scene.add(tableTop);
+      addCollider(-1.2, 1.2, -1.7, -0.3); // Table Collider
 
       const legGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.9);
       const woodMat = new THREE.MeshStandardMaterial({ color: 0x3d2314 });
@@ -708,12 +786,7 @@
         scene.add(leg);
       });
 
-      registerInteractive(tableTop, "Study Table", () => showNotification("A solid wooden study table holding clues."));
-
-      const benchTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.5), woodMat);
-      benchTop.position.set(-2.2, 0.45, -1);
-      scene.add(benchTop);
-      registerInteractive(benchTop, "Wooden Bench", () => showNotification("Just an empty bench."));
+      registerInteractive(tableTop, "Study Table", () => showNotification("A solid wooden table holding key items."));
 
       // --- SECRET BOOK (TABLE) ---
       const secretBook = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.06, 0.45), new THREE.MeshStandardMaterial({ color: 0x15803d }));
@@ -747,9 +820,10 @@
       registerInteractive(redBoxBody, "Red Lockbox", openRedBoxModal);
 
       // --- BLUE GLOWING SPHERE ---
-      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.8, 16), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.8, 16), new THREE.MeshStandardMaterial({ color: 0x334155 }));
       pedestal.position.set(2.5, 0.4, -2);
       scene.add(pedestal);
+      addCollider(2.1, 2.9, -2.4, -1.6); // Pedestal Collider
 
       const sphereMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, emissive: 0x1d4ed8, emissiveIntensity: 0.5 });
       const blueSphere = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 32), sphereMat);
@@ -763,13 +837,13 @@
             GameState.sphereUnlocked = true;
             GameState.addItem("Vault Power Cell");
             sphereMat.emissive.setHex(0x10b981);
-            showInspectModal("🔮", "Orb Activated!", "You used the Golden Key! The orb glows green and unlocks a Vault Power Cell for Room 2!");
+            showInspectModal("🔮", "Orb Activated!", "You inserted the Golden Key! The orb turns green and powers up a Vault Power Cell!");
           } else {
             AudioEngine.playError();
-            showInspectModal("🔮", "Locked Orb", "Requires a Golden Key from the Red Box to unlock its power cell.");
+            showInspectModal("🔮", "Locked Orb", "Requires a Golden Key from the Red Box to unlock its energy cell.");
           }
         } else {
-          showNotification("Orb power cell has already been collected.");
+          showNotification("Orb power cell has already been retrieved.");
         }
       });
 
@@ -793,10 +867,10 @@
 
       scene.add(clockGroup);
       registerInteractive(clockFrame, "Wall Clock", () => {
-        showInspectModal("🕰️", "Stopped Clock", "The hands are frozen at 7:42. A clue to the room passcode!");
+        showInspectModal("🕰️", "Wall Clock", "The hands are frozen pointing at 7:42. A clue to the passcode!");
       });
 
-      // --- LARGE BOOKSHELF WITH DOZENS OF BOOKS ---
+      // --- BOOKSHELF & BOOKS ---
       buildBookshelf();
 
       // --- MAIN DOORWAY TO ROOM 2 ---
@@ -817,7 +891,7 @@
         if (!GameState.doorUnlocked) {
           openKeypadModal();
         } else {
-          transitionToRoom(2);
+          showNotification("Door is open! Walk right through to Room 2.");
         }
       });
 
@@ -837,9 +911,11 @@
       shelfGroup.position.set(2.8, 0, 3.8); // East/South corner of Room 1
       shelfGroup.rotation.y = -Math.PI / 2;
 
+      addCollider(2.3, 3.9, 2.6, 4.0); // Bookshelf Collider
+
       const shelfWoodMat = new THREE.MeshStandardMaterial({ color: 0x2e1809, roughness: 0.7 });
 
-      // Frame Sides & Back
+      // Frame Sides
       const sideLeft = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.2, 0.5), shelfWoodMat);
       sideLeft.position.set(-1.1, 1.6, 0);
       shelfGroup.add(sideLeft);
@@ -864,7 +940,6 @@
       ];
 
       let titleIdx = 0;
-      // Populate 3 shelf levels
       [0.98, 1.78, 2.58].forEach((shelfY, shelfLevel) => {
         let currentX = -0.95;
         while (currentX < 0.9) {
@@ -877,7 +952,6 @@
 
           let bookMat;
           if (isSpecial) {
-            // Distinct Leather-Bound Philosopher's Journal
             bookMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.3, metalness: 0.2 });
           } else {
             bookMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
@@ -893,20 +967,19 @@
             registerInteractive(bookMesh, "Philosopher's Journal", () => {
               AudioEngine.playBookPull();
               
-              // Animate book pulling forward
               if (!GameState.specialBookPulled) {
                 GameState.specialBookPulled = true;
                 bookMesh.position.z += 0.15;
               }
 
-              // Trigger Quote Reveal
+              setModalActive(true);
               document.getElementById('quote-modal').classList.remove('hidden');
             });
           } else {
             const chosenTitle = bookTitles[titleIdx % bookTitles.length];
             titleIdx++;
             registerInteractive(bookMesh, chosenTitle, () => {
-              showNotification(`📖 "${chosenTitle}" — Nothing secret inside this book.`);
+              showNotification(`📖 "${chosenTitle}" — No secrets hidden here.`);
             });
           }
 
@@ -922,9 +995,14 @@
     // ==========================================
     function buildRoom2Vault() {
       const roomW = 8, roomD = 8, roomH = 4;
-      const offsetX = -12; // Room 2 is positioned directly West of Room 1
+      const offsetX = -12; // Room 2 is directly West of Room 1
 
-      // Floor (Metallic Dark Slate Grid)
+      // Outer Colliders for Room 2
+      addCollider(-16.0, -8.0, -4.1, -3.9); // North Wall
+      addCollider(-16.0, -8.0, 3.9, 4.1);   // South Wall
+      addCollider(-16.1, -15.9, -4.0, 4.0); // West Outer Wall
+
+      // Floor
       const floor = new THREE.Mesh(
         new THREE.PlaneGeometry(roomW, roomD),
         new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.3 })
@@ -969,6 +1047,7 @@
       );
       vaultPedestal.position.set(offsetX, 0.45, 0);
       scene.add(vaultPedestal);
+      addCollider(-12.8, -11.2, -0.8, 0.8); // Vault Core Collider
 
       const vaultGlass = new THREE.Mesh(
         new THREE.CylinderGeometry(0.5, 0.5, 1.0, 16),
@@ -977,7 +1056,7 @@
       vaultGlass.position.set(offsetX, 1.4, 0);
       scene.add(vaultGlass);
 
-      // Final Master Escape Key inside Vault
+      // Master Key inside Vault
       const masterKey = new THREE.Mesh(
         new THREE.TorusGeometry(0.15, 0.04, 16, 32),
         new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 })
@@ -992,7 +1071,7 @@
             GameState.vaultUnlocked = true;
             GameState.addItem("Master Vault Pass");
             vaultGlass.material.opacity = 0.1;
-            showInspectModal("⚡", "Vault Powered Up!", "You inserted the Vault Power Cell! The forcefield retracts, giving you the Master Vault Pass!");
+            showInspectModal("⚡", "Vault Disarmed!", "You inserted the Vault Power Cell! The forcefield retracts, giving you the Master Vault Pass!");
           } else {
             AudioEngine.playError();
             showInspectModal("🔒", "Containment Vault", "Requires the Vault Power Cell from Room 1's Blue Orb to disarm the forcefield.");
@@ -1011,21 +1090,164 @@
       registerInteractive(finalExitDoor, "Final Escape Hatch", () => {
         if (GameState.vaultUnlocked && GameState.hasItem("Master Vault Pass")) {
           AudioEngine.playUnlock();
+          setModalActive(true);
           document.getElementById('victory-modal').classList.remove('hidden');
         } else {
           AudioEngine.playError();
-          showInspectModal("🚨", "Locked Hatch", "Insert the Master Vault Pass from the central containment core to exit!");
+          showInspectModal("🚨", "Locked Hatch", "Insert the Master Vault Pass from the central vault core to escape!");
         }
       });
     }
 
     // ==========================================
-    // ROOM NAVIGATION & CAMERA TRANSITIONS
+    // FPS INPUT & MOVEMENT ENGINE
     // ==========================================
-    function transitionToRoom(roomNum) {
-      AudioEngine.playClick();
-      GameState.currentRoom = roomNum;
+    function setupInputListeners() {
+      // Keyboard Down
+      window.addEventListener('keydown', (e) => {
+        if (isModalOpen) return;
+        keysPressed[e.key.toLowerCase()] = true;
+      });
 
+      // Keyboard Up
+      window.addEventListener('keyup', (e) => {
+        keysPressed[e.key.toLowerCase()] = false;
+      });
+
+      // Mouse Look Dragging
+      window.addEventListener('pointerdown', (e) => {
+        if (isModalOpen) return;
+        
+        // If clicking on UI, ignore
+        if (e.target.closest('#hud-overlay, .modal-backdrop')) return;
+
+        isMouseDown = true;
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+
+        // Attempt direct crosshair interaction on click
+        checkCrosshairInteraction();
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (!isMouseDown || isModalOpen) return;
+
+        const deltaX = e.clientX - previousMousePosition.x;
+        const deltaY = e.clientY - previousMousePosition.y;
+
+        player.yaw -= deltaX * 0.003;
+        player.pitch -= deltaY * 0.003;
+
+        // Clamp pitch so camera doesn't flip upside down
+        player.pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, player.pitch));
+
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+      });
+
+      window.addEventListener('pointerup', () => {
+        isMouseDown = false;
+      });
+
+      // Mobile Touch D-Pad Setup
+      const setupDpadButton = (id, key) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); keysPressed[key] = true; });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); keysPressed[key] = false; });
+        btn.addEventListener('mousedown', () => { keysPressed[key] = true; });
+        btn.addEventListener('mouseup', () => { keysPressed[key] = false; });
+      };
+
+      setupDpadButton('btn-up', 'w');
+      setupDpadButton('btn-down', 's');
+      setupDpadButton('btn-left', 'a');
+      setupDpadButton('btn-right', 'd');
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function updatePlayerMovement(deltaTime) {
+      if (isModalOpen) return;
+
+      const moveVector = new THREE.Vector3(0, 0, 0);
+
+      if (keysPressed['w'] || keysPressed['arrowup']) moveVector.z -= 1;
+      if (keysPressed['s'] || keysPressed['arrowdown']) moveVector.z += 1;
+      if (keysPressed['a'] || keysPressed['arrowleft']) moveVector.x -= 1;
+      if (keysPressed['d'] || keysPressed['arrowright']) moveVector.x += 1;
+
+      if (moveVector.lengthSq() > 0) {
+        moveVector.normalize();
+
+        // Calculate view directions
+        const forward = new THREE.Vector3(
+          -Math.sin(player.yaw),
+          0,
+          -Math.cos(player.yaw)
+        ).normalize();
+
+        const right = new THREE.Vector3(
+          Math.cos(player.yaw),
+          0,
+          -Math.sin(player.yaw)
+        ).normalize();
+
+        const deltaMove = new THREE.Vector3()
+          .addScaledVector(forward, -moveVector.z * player.speed * deltaTime)
+          .addScaledVector(right, moveVector.x * player.speed * deltaTime);
+
+        // Attempt movement along X with collision
+        const nextPosX = player.position.x + deltaMove.x;
+        if (!checkPlayerCollision(nextPosX, player.position.z)) {
+          player.position.x = nextPosX;
+        }
+
+        // Attempt movement along Z with collision
+        const nextPosZ = player.position.z + deltaMove.z;
+        if (!checkPlayerCollision(player.position.x, nextPosZ)) {
+          player.position.z = nextPosZ;
+        }
+
+        // Footstep sounds
+        player.footstepTimer += deltaTime;
+        if (player.footstepTimer > 0.45) {
+          AudioEngine.playFootstep();
+          player.footstepTimer = 0;
+        }
+
+        // Check active room badge update based on position
+        if (player.position.x < -4.2 && GameState.currentRoom === 1) {
+          updateRoomUIBadge(2);
+        } else if (player.position.x >= -4.0 && GameState.currentRoom === 2) {
+          updateRoomUIBadge(1);
+        }
+      }
+
+      // Update Camera Quaternion & Position
+      const euler = new THREE.Euler(player.pitch, player.yaw, 0, 'YXZ');
+      camera.quaternion.setFromEuler(euler);
+      camera.position.copy(player.position);
+
+      // Check center crosshair target
+      updateCrosshairTarget();
+    }
+
+    function checkPlayerCollision(posX, posZ) {
+      // Check if door is closed and blocking passage between rooms
+      if (!GameState.doorUnlocked && posX < -3.8 && posZ > -1.8 && posZ < -0.2) {
+        return true;
+      }
+
+      for (let c of colliders) {
+        if (posX + player.radius > c.minX && posX - player.radius < c.maxX &&
+            posZ + player.radius > c.minZ && posZ - player.radius < c.maxZ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function updateRoomUIBadge(roomNum) {
+      GameState.currentRoom = roomNum;
       const titleBadge = document.getElementById('room-badge-title');
       const iconBadge = document.getElementById('room-badge-icon');
       const objText = document.getElementById('objective-text');
@@ -1033,47 +1255,48 @@
       if (roomNum === 1) {
         titleBadge.innerText = "Room 1: The Study";
         iconBadge.innerText = "🏛️";
-        objText.innerText = "Search the room, inspect the bookshelf, and discover the 4-digit passcode for the door!";
-        
-        // Move Camera to Room 1 Focus
-        camera.position.set(0, 2.2, 4.2);
-        controls.target.set(0, 1.5, -0.5);
-      } else if (roomNum === 2) {
+        objText.innerText = "Explore using WASD. Inspect the bookshelf, clock, and lockbox to escape!";
+      } else {
         titleBadge.innerText = "Room 2: Secret Vault";
         iconBadge.innerText = "🔐";
-        objText.innerText = "Use the Power Cell from Room 1 to unlock the central containment vault and escape!";
-        
-        // Move Camera to Room 2 Focus
-        camera.position.set(-12, 2.2, 4.2);
-        controls.target.set(-12, 1.5, 0);
+        objText.innerText = "Disarm the central vault core using the power cell to escape the complex!";
       }
-
-      controls.update();
-      showNotification(`Entered ${roomNum === 1 ? 'Room 1 (The Study)' : 'Room 2 (Secret Vault)'}`);
+      showNotification(`Walked into ${roomNum === 1 ? 'Room 1 (The Study)' : 'Room 2 (Secret Vault)'}`);
     }
 
-    // Pointer Move & Hover Effects
-    function onPointerMove(event) {
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
+    // Raycast Crosshair Target Check
+    function updateCrosshairTarget() {
+      raycaster.setFromCamera(centerMouse, camera);
       const intersects = raycaster.intersectObjects(interactiveObjects);
 
-      if (intersects.length > 0) {
-        const obj = intersects[0].object;
-        if (hoveredObject !== obj) {
-          resetHover();
-          hoveredObject = obj;
-          document.body.style.cursor = 'pointer';
+      const crosshairEl = document.getElementById('crosshair');
 
-          if (obj.material && obj.material.emissive) {
-            obj.material.emissive.setHex(0x38bdf8);
-            obj.material.emissiveIntensity = 0.4;
+      if (intersects.length > 0) {
+        const hit = intersects[0];
+        const maxDist = hit.object.userData.maxDist || 3.5;
+
+        if (hit.distance <= maxDist) {
+          if (hoveredObject !== hit.object) {
+            resetHover();
+            hoveredObject = hit.object;
+            crosshairEl.classList.add('active');
+
+            if (hoveredObject.material && hoveredObject.material.emissive) {
+              hoveredObject.material.emissive.setHex(0xf59e0b);
+              hoveredObject.material.emissiveIntensity = 0.5;
+            }
           }
+          return;
         }
-      } else {
-        resetHover();
+      }
+
+      resetHover();
+      crosshairEl.classList.remove('active');
+    }
+
+    function checkCrosshairInteraction() {
+      if (hoveredObject && hoveredObject.userData && hoveredObject.userData.onInteract) {
+        hoveredObject.userData.onInteract();
       }
     }
 
@@ -1085,20 +1308,6 @@
           hoveredObject.material.emissiveIntensity = orig === 0x1d4ed8 ? 0.5 : 0;
         }
         hoveredObject = null;
-        document.body.style.cursor = 'default';
-      }
-    }
-
-    // Pointer Click Handler
-    function onPointerDown(event) {
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(interactiveObjects);
-
-      if (intersects.length > 0) {
-        const clickedObj = intersects[0].object;
-        if (clickedObj.userData && clickedObj.userData.onInteract) {
-          clickedObj.userData.onInteract();
-        }
       }
     }
 
@@ -1108,13 +1317,16 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
+    let clock;
     function animate() {
       requestAnimationFrame(animate);
-      controls.update();
+      const deltaTime = Math.min(clock.getDelta(), 0.1);
+
+      updatePlayerMovement(deltaTime);
       renderer.render(scene, camera);
     }
 
-    // Initialize 3D Engine on Window Load
+    // Initialize 3D FPS Game on Load
     window.addEventListener('load', () => {
       init3D();
     });
