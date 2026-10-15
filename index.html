@@ -1,1335 +1,334 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>3D Multi-Room FPS Escape Room - Pure Three.js</title>
-
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Three.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      user-select: none;
-      background-color: #020617;
-      touch-action: none;
-    }
-    #canvas-container {
-      width: 100vw;
-      height: 100vh;
-      display: block;
-    }
-    .modal-backdrop {
-      background: rgba(2, 6, 23, 0.88);
-      backdrop-filter: blur(10px);
-    }
-    .crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      transition: all 0.15s ease;
-    }
-    .crosshair-dot {
-      width: 6px;
-      height: 6px;
-      background-color: rgba(255, 255, 255, 0.8);
-      border-radius: 50%;
-      box-shadow: 0 0 8px rgba(0,0,0,0.8);
-      transition: all 0.2s ease;
-    }
-    .crosshair.active .crosshair-dot {
-      background-color: #f59e0b;
-      transform: scale(2.2);
-      box-shadow: 0 0 12px #f59e0b;
-    }
-    .dpad-btn {
-      background: rgba(15, 23, 42, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      backdrop-filter: blur(4px);
-      color: white;
-      font-weight: bold;
-      touch-action: manipulation;
-    }
-    .dpad-btn:active {
-      background: rgba(245, 158, 11, 0.8);
-      color: #020617;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Escape Room — Lumen Vault</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#01040c;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;user-select:none;touch-action:none;color:#e7e9ee}
+#c{position:fixed;inset:0}
+#vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.55) 100%);z-index:5}
+#grain{position:fixed;inset:0;pointer-events:none;opacity:.05;z-index:6;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.75);box-shadow:0 0 6px rgba(0,0,0,.8);transition:.15s;pointer-events:none;z-index:10}
+.crosshair.on{background:#f59e0b;transform:translate(-50%,-50%) scale(2.4);box-shadow:0 0 10px #f59e0b}
+.dp{background:rgba(11,16,32,.8);border:1px solid rgba(255,255,255,.15);color:#fff;font-weight:700;touch-action:manipulation}
+.dp:active{background:rgba(245,158,11,.85);color:#0b1020}
+.keybtn{background:#131a2e;color:#fff;font-weight:700;border-radius:.75rem;padding:.75rem 0}
+.keybtn:active{background:#f59e0b;color:#0b1020}
+</style>
 </head>
-<body class="text-slate-100">
+<body>
+<canvas id="c"></canvas>
+<div id="vignette"></div>
+<div id="grain"></div>
+<div class="crosshair" id="cross"></div>
 
-  <div id="canvas-container"></div>
-
-  <!-- Center FPS Crosshair -->
-  <div id="crosshair" class="crosshair z-10">
-    <div class="crosshair-dot"></div>
-  </div>
-
-  <!-- HUD Overlay -->
-  <div id="hud-overlay" class="fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-4 sm:p-6">
-    
-    <!-- Top Bar: Title & Inventory -->
-    <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
-      
-      <!-- Room Title & Objectives -->
-      <div class="bg-slate-900/90 border border-slate-700/80 p-4 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto max-w-sm">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="text-xl" id="room-badge-icon">🏛️</span>
-          <h1 id="room-badge-title" class="font-bold text-amber-400 text-base sm:text-lg">Room 1: The Study</h1>
-        </div>
-        <p id="objective-text" class="text-xs text-slate-300 leading-relaxed">
-          Walk around using WASD or Arrow keys. Drag mouse to look around. Reach objects and click to inspect!
-        </p>
-      </div>
-
-      <!-- Inventory System -->
-      <div class="bg-slate-900/90 border border-slate-700/80 p-4 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto min-w-[220px] max-w-xs">
-        <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
-          <span>Inventory</span>
-          <span id="inventory-count" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">0 items</span>
-        </div>
-        <div id="inventory-list" class="flex flex-wrap gap-2 min-h-[36px] items-center">
-          <span class="text-xs text-slate-500 italic">No items collected</span>
-        </div>
-      </div>
-
+<div class="fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-3 sm:p-5" style="padding-top:max(.75rem,env(safe-area-inset-top));padding-bottom:max(.75rem,env(safe-area-inset-bottom))">
+  <div class="flex flex-col sm:flex-row justify-between items-start gap-3">
+    <div class="bg-slate-900/90 border border-slate-700/70 p-3 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto max-w-xs">
+      <div class="flex items-center gap-2 mb-1"><span id="rIcon" class="text-lg">🏛️</span><h1 id="rTitle" class="font-bold text-amber-400 text-sm">The Study</h1></div>
+      <p id="rObj" class="text-[11px] text-slate-300 leading-relaxed">Drag to look, WASD to move, click glowing objects to interact.</p>
     </div>
-
-    <!-- Center Interactive Notification Banner -->
-    <div id="notification-banner" class="self-center bg-slate-900/95 border border-amber-500/40 text-amber-300 font-medium px-6 py-3 rounded-full shadow-2xl transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-none text-center text-sm max-w-lg">
-      <span id="notification-text">Welcome! Use WASD to walk, Drag to look around.</span>
-    </div>
-
-    <!-- On-Screen Controls Hint & Mobile Touch D-Pad -->
-    <div class="flex items-end justify-between w-full pointer-events-none">
-      
-      <!-- Mobile D-Pad (Visible on Touch Devices) -->
-      <div id="mobile-dpad" class="pointer-events-auto grid grid-cols-3 gap-1.5 w-36 h-36 sm:hidden">
-        <div></div>
-        <button id="btn-up" class="dpad-btn rounded-t-2xl flex items-center justify-center text-lg">▲</button>
-        <div></div>
-        <button id="btn-left" class="dpad-btn rounded-l-2xl flex items-center justify-center text-lg">◄</button>
-        <div class="dpad-btn rounded-lg bg-slate-950/60 flex items-center justify-center text-[10px] text-slate-400">MOVE</div>
-        <button id="btn-right" class="dpad-btn rounded-r-2xl flex items-center justify-center text-lg">►</button>
-        <div></div>
-        <button id="btn-down" class="dpad-btn rounded-b-2xl flex items-center justify-center text-lg">▼</button>
-        <div></div>
-      </div>
-
-      <!-- Controls Hint Badge -->
-      <div class="hidden sm:flex bg-slate-900/90 border border-slate-700/80 px-5 py-2.5 rounded-full text-xs text-slate-300 shadow-xl items-center gap-3 pointer-events-auto">
-        <span>🎮 <b>Move:</b> WASD / Arrow Keys</span>
-        <span class="text-slate-600">|</span>
-        <span>👀 <b>Look:</b> Click & Drag Mouse</span>
-        <span class="text-slate-600">|</span>
-        <span>✨ <b>Interact:</b> Click Objects</span>
-      </div>
-
-    </div>
-
-  </div>
-
-  <!-- Inspection / Text Dialog Modal -->
-  <div id="inspect-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md shadow-2xl text-center">
-      <div id="inspect-icon" class="text-4xl mb-3">🔍</div>
-      <h2 id="inspect-title" class="text-xl font-bold text-amber-400 mb-2">Object Name</h2>
-      <p id="inspect-description" class="text-sm text-slate-300 mb-6 leading-relaxed">Object details go here.</p>
-      
-      <div id="inspect-actions" class="flex justify-center gap-3">
-        <button onclick="closeInspectModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-2.5 rounded-xl text-sm font-semibold transition">
-          Close
-        </button>
-      </div>
+    <div class="bg-slate-900/90 border border-slate-700/70 p-3 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto min-w-[190px]">
+      <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex justify-between"><span>Inventory</span><span id="invCount" class="bg-slate-800 px-2 py-0.5 rounded-full">0</span></div>
+      <div id="invList" class="flex flex-wrap gap-1.5 min-h-[28px] items-center text-xs text-slate-500 italic">empty</div>
     </div>
   </div>
-
-  <!-- Special Quote Reveal Modal (Philosopher's Journal) -->
-  <div id="quote-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
-    <div class="bg-slate-900 border border-amber-500/60 rounded-3xl p-8 w-full max-w-lg shadow-2xl text-center relative overflow-hidden">
-      <div class="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
-      <div class="text-5xl mb-3">📜</div>
-      <h2 class="text-xl font-bold text-amber-400 mb-1">Philosopher's Journal</h2>
-      <p class="text-xs text-slate-400 mb-6">A secret mechanism clicked as you pulled the book!</p>
-      
-      <blockquote class="bg-slate-950/80 border-l-4 border-amber-500 p-4 rounded-r-2xl italic text-amber-200 text-base mb-6 text-left shadow-inner">
-        "In the heart of darkness, truth shines brightest — <span class="font-bold underline text-amber-400">7429</span>"
-      </blockquote>
-
-      <p class="text-xs text-slate-300 mb-6 leading-relaxed">
-        This legendary quote reveals the 4-digit passcode to the main doorway!
-      </p>
-
-      <button onclick="closeQuoteModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-8 py-3 rounded-xl text-sm transition shadow-lg">
-        Got It
-      </button>
+  <div id="notif" class="self-center bg-slate-900/95 border border-amber-500/40 text-amber-300 font-medium px-5 py-2.5 rounded-full shadow-2xl transition-all duration-300 translate-y-3 opacity-0 text-center text-xs max-w-md"></div>
+  <div class="flex items-end justify-between">
+    <div id="dpad" class="pointer-events-auto grid grid-cols-3 gap-1 w-32 h-32 sm:hidden">
+      <div></div><button id="bU" class="dp rounded-t-xl">▲</button><div></div>
+      <button id="bL" class="dp rounded-l-xl">◄</button><div class="dp rounded-lg flex items-center justify-center text-[9px] opacity-60">MOVE</div><button id="bR" class="dp rounded-r-xl">►</button>
+      <div></div><button id="bD" class="dp rounded-b-xl">▼</button><div></div>
+    </div>
+    <div class="hidden sm:flex bg-slate-900/90 border border-slate-700/70 px-4 py-2 rounded-full text-[11px] gap-3 pointer-events-auto">
+      <span>🎮 WASD move</span><span class="text-slate-600">|</span><span>👀 drag look</span><span class="text-slate-600">|</span><span>✨ click to interact</span>
     </div>
   </div>
+</div>
 
-  <!-- Red Lockbox Keypad Modal -->
-  <div id="redbox-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
-    <div class="bg-slate-900 border border-rose-900/80 rounded-3xl p-6 w-full max-w-xs shadow-2xl text-center">
-      <div class="text-3xl mb-1">📦</div>
-      <h2 class="text-lg font-bold text-rose-400 mb-1">Red Box Pin</h2>
-      <p class="text-xs text-slate-400 mb-4">Enter 3-Digit Code (Check Secret Book)</p>
-      
-      <div id="redbox-display" class="bg-slate-950 font-mono text-2xl tracking-[0.4em] text-rose-400 py-3 rounded-xl mb-4 border border-rose-950 shadow-inner">
-        ___
-      </div>
-
-      <div class="grid grid-cols-3 gap-2 mb-4">
-        <button onclick="pressRedBoxDigit('1')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">1</button>
-        <button onclick="pressRedBoxDigit('2')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">2</button>
-        <button onclick="pressRedBoxDigit('3')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">3</button>
-        <button onclick="pressRedBoxDigit('4')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">4</button>
-        <button onclick="pressRedBoxDigit('5')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">5</button>
-        <button onclick="pressRedBoxDigit('6')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">6</button>
-        <button onclick="pressRedBoxDigit('7')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">7</button>
-        <button onclick="pressRedBoxDigit('8')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">8</button>
-        <button onclick="pressRedBoxDigit('9')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">9</button>
-        <button onclick="clearRedBoxCode()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold py-3 rounded-xl text-xs">CLR</button>
-        <button onclick="pressRedBoxDigit('0')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">0</button>
-        <button onclick="submitRedBoxCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs">OK</button>
-      </div>
-
-      <button onclick="closeRedBoxModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 py-2 rounded-xl text-xs font-semibold">
-        Cancel
-      </button>
-    </div>
+<div id="modal" class="hidden fixed inset-0 z-20 flex items-center justify-center p-4" style="background:rgba(2,6,23,.88);backdrop-filter:blur(8px)">
+  <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-sm shadow-2xl text-center">
+    <div id="mIcon" class="text-4xl mb-2"></div>
+    <h2 id="mTitle" class="text-lg font-bold text-amber-400 mb-2"></h2>
+    <p id="mDesc" class="text-sm text-slate-300 mb-4 leading-relaxed"></p>
+    <div id="mPad" class="hidden grid grid-cols-3 gap-2 mb-4"></div>
+    <div id="mDisp" class="hidden font-mono text-2xl tracking-[.4em] text-amber-400 bg-slate-950 py-2.5 rounded-xl mb-4 border border-slate-800"></div>
+    <div id="mActions" class="flex flex-col items-center gap-2"></div>
   </div>
+</div>
 
-  <!-- Exit Door Electronic Keypad Modal -->
-  <div id="keypad-modal" class="hidden fixed inset-0 z-20 flex items-center justify-center modal-backdrop p-4">
-    <div class="bg-slate-900 border border-emerald-900/80 rounded-3xl p-6 w-full max-w-xs shadow-2xl text-center">
-      <div class="text-3xl mb-1">🔐</div>
-      <h2 class="text-lg font-bold text-emerald-400 mb-1">Door Keypad</h2>
-      <p class="text-xs text-slate-400 mb-4">Enter 4-Digit Passcode</p>
-      
-      <div id="keypad-display" class="bg-slate-950 font-mono text-2xl tracking-[0.4em] text-emerald-400 py-3 rounded-xl mb-4 border border-emerald-950 shadow-inner">
-        ____
-      </div>
-
-      <div class="grid grid-cols-3 gap-2 mb-4">
-        <button onclick="pressKeypadDigit('1')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">1</button>
-        <button onclick="pressKeypadDigit('2')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">2</button>
-        <button onclick="pressKeypadDigit('3')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">3</button>
-        <button onclick="pressKeypadDigit('4')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">4</button>
-        <button onclick="pressKeypadDigit('5')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">5</button>
-        <button onclick="pressKeypadDigit('6')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">6</button>
-        <button onclick="pressKeypadDigit('7')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">7</button>
-        <button onclick="pressKeypadDigit('8')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">8</button>
-        <button onclick="pressKeypadDigit('9')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">9</button>
-        <button onclick="clearKeypadCode()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold py-3 rounded-xl text-xs">CLR</button>
-        <button onclick="pressKeypadDigit('0')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">0</button>
-        <button onclick="submitKeypadCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs">OK</button>
-      </div>
-
-      <button onclick="closeKeypadModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 py-2 rounded-xl text-xs font-semibold">
-        Cancel
-      </button>
-    </div>
+<div id="victory" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4" style="background:rgba(2,6,23,.92)">
+  <div class="bg-slate-900 border border-emerald-500/50 rounded-3xl p-8 max-w-sm text-center shadow-2xl">
+    <div class="text-6xl mb-3">🏆</div>
+    <h2 class="text-2xl font-black text-amber-400 mb-2">You escaped!</h2>
+    <p class="text-sm text-slate-300 mb-6">You solved every lock in the Lumen Vault and walked free.</p>
+    <button onclick="location.reload()" class="w-full bg-amber-500 text-slate-950 font-extrabold py-3 rounded-2xl">Play again</button>
   </div>
+</div>
 
-  <!-- Final Victory Modal -->
-  <div id="victory-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center modal-backdrop p-4">
-    <div class="bg-slate-900 border border-emerald-500/50 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center">
-      <div class="text-6xl mb-3">🏆</div>
-      <h2 class="text-3xl font-black text-amber-400 mb-2">YOU ESCAPED!</h2>
-      <p class="text-sm text-slate-300 mb-6 leading-relaxed">
-        Brilliant work! You explored both rooms, retrieved the Philosopher's quote, disarmed the vault, and escaped!
-      </p>
-      <button onclick="window.location.reload()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-3.5 rounded-2xl shadow-lg transition transform active:scale-95">
-        Play Again
-      </button>
-    </div>
-  </div>
+<script>
+/* ---------- audio ---------- */
+let actx;
+function tone(f0,f1,dur,type,vol){
+  actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  if(actx.state==='suspended')actx.resume();
+  const t=actx.currentTime,o=actx.createOscillator(),g=actx.createGain();
+  o.type=type;o.frequency.setValueAtTime(f0,t);
+  if(f1)o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  o.connect(g);g.connect(actx.destination);o.start();o.stop(t+dur);
+}
+const SFX={click:()=>tone(800,400,.05,'sine',.1),step:()=>tone(70+Math.random()*20,30,.08,'triangle',.06),
+  pull:()=>tone(200,350,.25,'triangle',.12),pick:()=>tone(523,880,.12,'triangle',.14),
+  door:()=>tone(120,90,.8,'sawtooth',.08),
+  ok:()=>{tone(523,0,.12,'sine',.18);setTimeout(()=>tone(659,0,.12,'sine',.18),90);setTimeout(()=>tone(784,0,.3,'sine',.18),180)},
+  bad:()=>tone(160,110,.22,'sawtooth',.13)};
 
-  <script>
-    // ==========================================
-    // AUDIO ENGINE (Pure Web Audio API)
-    // ==========================================
-    const AudioEngine = {
-      ctx: null,
-      init() {
-        if (!this.ctx) {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          if (AudioContext) this.ctx = new AudioContext();
-        }
-        if (this.ctx && this.ctx.state === 'suspended') {
-          this.ctx.resume();
-        }
-      },
-      playClick() {
-        this.init();
-        if (!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.05);
-        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.05);
-      },
-      playFootstep() {
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(80 + Math.random() * 20, now);
-        osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(now + 0.08);
-      },
-      playBookPull() {
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(200, now);
-        osc.frequency.linearRampToValueAtTime(350, now + 0.25);
-        gain.gain.setValueAtTime(0.15, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(now + 0.25);
-      },
-      playPickup() {
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(523.25, now); // C5
-        osc.frequency.exponentialRampToValueAtTime(880, now + 0.12); // A5
-        gain.gain.setValueAtTime(0.15, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(now + 0.12);
-      },
-      playDoorCreak() {
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(120, now);
-        osc.frequency.linearRampToValueAtTime(180, now + 0.5);
-        osc.frequency.linearRampToValueAtTime(90, now + 0.9);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.9);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(now + 0.9);
-      },
-      playUnlock() {
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, now);
-        osc.frequency.setValueAtTime(659.25, now + 0.1);
-        osc.frequency.setValueAtTime(783.99, now + 0.2);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(now + 0.45);
-      },
-      playError() {
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(160, now);
-        osc.frequency.setValueAtTime(110, now + 0.1);
-        gain.gain.setValueAtTime(0.15, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(now + 0.25);
-      }
+/* ---------- state ---------- */
+const S={room:1,inv:[],red:false,orb:false,door:false,vault:false,bookPlaced:false};
+function add(item){if(S.inv.includes(item))return;S.inv.push(item);SFX.pick();drawInv();notify('Picked up: '+item)}
+function has(i){return S.inv.includes(i)}
+function drawInv(){document.getElementById('invCount').textContent=S.inv.length;
+  document.getElementById('invList').innerHTML=S.inv.length?S.inv.map(i=>'<span class="bg-indigo-600/90 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">✨ '+i+'</span>').join(''):'<span class="text-xs text-slate-500 italic">empty</span>'}
+let nt;function notify(m){const b=document.getElementById('notif');b.textContent=m;b.classList.remove('opacity-0','translate-y-3');clearTimeout(nt);nt=setTimeout(()=>b.classList.add('opacity-0','translate-y-3'),3000)}
+
+/* ---------- modal ---------- */
+let modalOpen=false;
+function closeModal(){modalOpen=false;document.getElementById('modal').classList.add('hidden')}
+function simpleModal(icon,title,desc){
+  SFX.click();modalOpen=true;
+  document.getElementById('mIcon').textContent=icon;document.getElementById('mTitle').textContent=title;document.getElementById('mDesc').textContent=desc;
+  document.getElementById('mPad').classList.add('hidden');document.getElementById('mDisp').classList.add('hidden');
+  const a=document.getElementById('mActions');a.innerHTML='';
+  const close=document.createElement('button');close.className='bg-slate-800 px-6 py-2 rounded-xl text-sm font-semibold';close.textContent='Close';close.onclick=closeModal;a.appendChild(close);
+  document.getElementById('modal').classList.remove('hidden');
+}
+function keypadModal(title,hint,len,code,onOk,icon){
+  modalOpen=true;let cur='';
+  document.getElementById('mIcon').textContent=icon;document.getElementById('mTitle').textContent=title;document.getElementById('mDesc').textContent=hint;
+  const disp=document.getElementById('mDisp');disp.classList.remove('hidden');disp.textContent='_'.repeat(len);
+  const pad=document.getElementById('mPad');pad.classList.remove('hidden');pad.innerHTML='';
+  document.getElementById('mActions').innerHTML='';
+  const render=()=>disp.textContent=cur.padEnd(len,'_');
+  '123456789C0K'.split('').forEach(k=>{
+    const b=document.createElement('button');b.className='keybtn';b.textContent=k==='C'?'CLR':k==='K'?'OK':k;
+    b.onclick=()=>{SFX.click();
+      if(k==='C')cur='';
+      else if(k==='K'){ if(cur===code){SFX.ok();closeModal();onOk()} else{SFX.bad();notify('Incorrect code');cur=''} }
+      else if(cur.length<len)cur+=k;
+      render();
     };
+    pad.appendChild(b);
+  });
+  const close=document.createElement('button');close.className='bg-slate-800 px-6 py-2 rounded-xl text-sm font-semibold';close.textContent='Cancel';close.onclick=closeModal;
+  document.getElementById('mActions').appendChild(close);
+  document.getElementById('modal').classList.remove('hidden');
+}
 
-    // ==========================================
-    // GAME STATE & INVENTORY SYSTEM
-    // ==========================================
-    const GameState = {
-      currentRoom: 1,
-      inventory: [],
-      redBoxUnlocked: false,
-      sphereUnlocked: false,
-      doorUnlocked: false,
-      vaultUnlocked: false,
-      specialBookPulled: false,
-      redBoxCode: "314",
-      masterDoorCode: "7429",
+/* ---------- three.js ---------- */
+let scene,camera,renderer,ray,objs=[],colliders=[],hovered=null,clock;
+let orb,orbMat,glassMat,redLid,doorLeaf,keyMesh;
+const player={pos:new THREE.Vector3(0,1.6,2.6),yaw:0,pitch:0,r:.35,speed:4,step:0};
+const keys={};let down=false,prev={x:0,y:0};
 
-      addItem(item) {
-        if (!this.inventory.includes(item)) {
-          this.inventory.push(item);
-          AudioEngine.playPickup();
-          this.updateInventoryUI();
-          showNotification(`Collected: ${item}`);
-          return true;
-        }
-        return false;
-      },
+function texture(draw,size){size=size||256;const cv=document.createElement('canvas');cv.width=cv.height=size;draw(cv.getContext('2d'),size);
+  const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
+function woodTex(base,grain){return texture((x,s)=>{x.fillStyle=base;x.fillRect(0,0,s,s);
+  for(let i=0;i<40;i++){x.strokeStyle=grain;x.globalAlpha=.08+Math.random()*.1;x.beginPath();
+  const y=Math.random()*s;x.moveTo(0,y);x.bezierCurveTo(s*.3,y+Math.random()*10-5,s*.7,y+Math.random()*10-5,s,y);x.stroke()}})}
+function stoneTex(base,line){return texture((x,s)=>{x.fillStyle=base;x.fillRect(0,0,s,s);
+  for(let i=0;i<8;i++)for(let j=0;j<8;j++){x.strokeStyle=line;x.globalAlpha=.25;x.strokeRect(i*s/8,j*s/8,s/8,s/8);
+  x.fillStyle='rgba(0,0,0,'+(Math.random()*.08)+')';x.fillRect(i*s/8,j*s/8,s/8,s/8)}})}
 
-      hasItem(item) {
-        return this.inventory.includes(item);
-      },
+function reg(mesh,name,fn,dist){mesh.userData={name:name,fn:fn,dist:dist||3.2,em:mesh.material.emissive.getHex()};objs.push(mesh)}
+function wall(w,h,x,y,z,ry,mat){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);m.position.set(x,y,z);if(ry)m.rotation.y=ry;scene.add(m);return m}
+function box(w,h,d,x,y,z,color,opts){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial(Object.assign({color:color},opts||{})));m.position.set(x,y,z);m.castShadow=true;scene.add(m);return m}
+function collide(x0,x1,z0,z1){colliders.push({x0:x0,x1:x1,z0:z0,z1:z1})}
+function dust(ox){const n=180,g=new THREE.BufferGeometry(),pos=new Float32Array(n*3);
+  for(let i=0;i<n;i++){pos[i*3]=ox+(Math.random()-.5)*7;pos[i*3+1]=Math.random()*3.6;pos[i*3+2]=(Math.random()-.5)*7}
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xffe9c7,size:.012,transparent:true,opacity:.5})))}
 
-      updateInventoryUI() {
-        const list = document.getElementById('inventory-list');
-        const count = document.getElementById('inventory-count');
-        if (!list) return;
+function buildRoom(ox,warm){
+  const floorTex=warm?woodTex('#2a1a10','#1a0e08'):stoneTex('#1a2234','#0c1220');floorTex.repeat.set(4,4);
+  const wallTex=warm?stoneTex('#263447','#16202f'):stoneTex('#131b2e','#0a0f1c');wallTex.repeat.set(3,2);
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.MeshStandardMaterial({map:floorTex,roughness:.8}));
+  floor.rotation.x=-Math.PI/2;floor.position.x=ox;floor.receiveShadow=true;scene.add(floor);
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.MeshStandardMaterial({color:0x05070d}));
+  ceil.rotation.x=Math.PI/2;ceil.position.set(ox,4,0);scene.add(ceil);
+  const wm=new THREE.MeshStandardMaterial({map:wallTex,roughness:.85,side:THREE.DoubleSide});
+  wall(8,4,ox,2,-4,0,wm);wall(8,4,ox,2,4,Math.PI,wm);
+  collide(ox-4,ox+4,-4.1,-3.9);collide(ox-4,ox+4,3.9,4.1);
+  const lamp=new THREE.PointLight(warm?0xffb86b:0x7dd3fc,1.4,7,2);lamp.position.set(ox,3.6,0);scene.add(lamp);
+  dust(ox);return lamp;
+}
 
-        count.innerText = `${this.inventory.length} item${this.inventory.length === 1 ? '' : 's'}`;
+function openDoor(){
+  keypadModal('Vault Door','Enter the 4-digit passcode',4,'7429',function(){
+    S.door=true;SFX.door();doorLeaf.rotation.y=-1.7;
+    simpleModal('🚪','Unlocked!','The heavy door swings open. Head west into the vault chamber.');
+  },'🚪');
+}
 
-        if (this.inventory.length === 0) {
-          list.innerHTML = `<span class="text-xs text-slate-500 italic">No items collected</span>`;
-          return;
-        }
+function init(){
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x01040c);scene.fog=new THREE.FogExp2(0x01040c,.045);
+  camera=new THREE.PerspectiveCamera(66,innerWidth/innerHeight,.1,100);
+  renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true});
+  renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  scene.add(new THREE.AmbientLight(0xc7d2fe,.35));
+  const l1=buildRoom(0,true), l2=buildRoom(-11,false);
 
-        list.innerHTML = this.inventory.map(item => `
-          <div class="bg-indigo-600/90 text-white text-xs font-semibold px-2.5 py-1 rounded-full border border-indigo-400/30 shadow flex items-center gap-1">
-            <span>✨</span>
-            <span>${item}</span>
-          </div>
-        `).join('');
-      }
-    };
+  const wm=new THREE.MeshStandardMaterial({color:0x1b2436,roughness:.8,side:THREE.DoubleSide});
+  wall(8,4,4,2,0,-Math.PI/2,wm);collide(3.9,4.1,-4,4);
+  wall(8,4,-15,2,0,Math.PI/2,wm);collide(-15.2,-14.8,-4,4);
+  wall(3,4,-4,2,-2.5,Math.PI/2,wm);collide(-4.1,-3.9,-4,-1);
+  wall(3,4,-4,2,2.5,Math.PI/2,wm);collide(-4.1,-3.9,1,4);
+  wall(2,1.3,-4,3.35,0,Math.PI/2,wm);
+  doorLeaf=box(.08,2.5,1.25,-4,1.25,0,0x4b5a73,{roughness:.4});
+  reg(doorLeaf,'Vault Door',function(){if(!S.door)openDoor();else notify('Door is open — walk through.')});
 
-    // Notification HUD Banner
-    let notifTimer = null;
-    function showNotification(msg) {
-      const banner = document.getElementById('notification-banner');
-      const text = document.getElementById('notification-text');
-      if (!banner || !text) return;
+  // study table + legs
+  const table=box(2.1,.1,1.1,0,.9,-1,0x4b2f14,{roughness:.6});collide(-1.1,1.1,-1.6,-.4);
+  reg(table,'Study Table',function(){notify('A sturdy table holding a few things.')});
+  [[-.95,.45,-1.45],[.95,.45,-1.45],[-.95,.45,-.55],[.95,.45,-.55]].forEach(function(p){box(.06,.9,.06,p[0],p[1],p[2],0x2d1b0c)});
 
-      text.innerText = msg;
-      banner.classList.remove('opacity-0', 'translate-y-4');
-      banner.classList.add('opacity-100', 'translate-y-0');
+  // secret book
+  const sBook=box(.32,.06,.42,.45,.98,-.85,0x15803d,{roughness:.5});sBook.rotation.y=-.3;
+  reg(sBook,'Green Notebook',function(){add('Secret Note');simpleModal('📖','Green Notebook',"Scrawled inside: 'Lockbox code 3-1-4. The journal on the shelf hides the door's passcode.'")});
 
-      clearTimeout(notifTimer);
-      notifTimer = setTimeout(() => {
-        banner.classList.remove('opacity-100', 'translate-y-0');
-        banner.classList.add('opacity-0', 'translate-y-4');
-      }, 3500);
+  // red lockbox
+  redLid=box(.46,.04,.36,-.6,1.1,-1,0xb91c1c,{roughness:.4});
+  const redBody=box(.45,.2,.35,-.6,1,-1,0xb91c1c,{roughness:.4});
+  reg(redBody,'Red Lockbox',function(){
+    if(S.red){simpleModal('📦','Red Box','Already open — the golden key is gone.');return}
+    keypadModal('Red Box Lock','Enter the 3-digit code',3,'314',function(){
+      S.red=true;redLid.rotation.x=-2;add('Golden Key');
+      simpleModal('🔑','Unlocked!','The lid springs open, revealing a golden key.');
+    },'📦');
+  });
+
+  // blue orb
+  box(.5,.8,.5,2.4,.4,-2,0x334155,{roughness:.7});collide(2.1,2.9,-2.4,-1.6);
+  orbMat=new THREE.MeshStandardMaterial({color:0x2563eb,emissive:0x1d4ed8,emissiveIntensity:.6,roughness:.2});
+  orb=new THREE.Mesh(new THREE.SphereGeometry(.26,32,32),orbMat);orb.position.set(2.4,1.05,-2);scene.add(orb);
+  reg(orb,'Glowing Orb',function(){
+    if(S.orb){notify('The orb is already spent.');return}
+    if(!has('Golden Key')){SFX.bad();simpleModal('🔮','Locked Orb','It needs a key to unlock its charge.');return}
+    S.orb=true;orbMat.emissive.setHex(0x10b981);orb.userData.em=0x10b981;add('Power Cell');
+    simpleModal('🔮','Orb Unlocked','The golden key fits! The orb turns green and yields a power cell.');
+  });
+
+  // bookshelf + hidden journal
+  const sx=2.9,sz=3.6;
+  box(.1,3,.5,sx-1,1.5,sz,0x2e1809);box(.1,3,.5,sx+1,1.5,sz,0x2e1809);
+  collide(sx-1.1,sx+1.1,sz-.3,sz+.3);
+  const colors=[0x991b1b,0x1e3a8a,0x065f46,0x7c2d12,0x4c1d95];
+  [.2,1,1.8,2.6].forEach(function(y){
+    box(2,.07,.46,sx,y,sz,0x2e1809);
+    let x=sx-.9;
+    while(x<sx+.85){
+      const w=.08+Math.random()*.07,h=.3+Math.random()*.15;
+      const special=(y===1.8&&x>sx-.1&&x<sx+.15&&!S.bookPlaced);
+      const bm=box(w,h,.3,x+w/2,y+h/2+.04,sz,special?0x78350f:colors[Math.floor(Math.random()*colors.length)],{roughness:.6});
+      if(special){S.bookPlaced=true;
+        reg(bm,"Philosopher's Journal",function(){SFX.pull();bm.position.z+=.12;
+          simpleModal('📜',"Philosopher's Journal","A mechanism clicks as you pull it. Etched inside: the door passcode — 7 4 2 9.")});
+      } else reg(bm,'Old Book',function(){notify('Just a dusty, unremarkable book.')});
+      x+=w+.02;
     }
-
-    // Modal Utilities
-    let isModalOpen = false;
-    function setModalActive(active) {
-      isModalOpen = active;
-    }
-
-    function showInspectModal(icon, title, description, actionText = null, actionCallback = null) {
-      AudioEngine.playClick();
-      setModalActive(true);
-      document.getElementById('inspect-icon').innerText = icon;
-      document.getElementById('inspect-title').innerText = title;
-      document.getElementById('inspect-description').innerText = description;
-
-      const actionsContainer = document.getElementById('inspect-actions');
-      actionsContainer.innerHTML = `
-        <button onclick="closeInspectModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-2 rounded-xl text-sm font-semibold">
-          Close
-        </button>
-      `;
-
-      if (actionText && actionCallback) {
-        const actionBtn = document.createElement('button');
-        actionBtn.className = "bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-2 rounded-xl text-sm font-extrabold shadow-lg";
-        actionBtn.innerText = actionText;
-        actionBtn.onclick = () => {
-          closeInspectModal();
-          actionCallback();
-        };
-        actionsContainer.appendChild(actionBtn);
-      }
-
-      document.getElementById('inspect-modal').classList.remove('hidden');
-    }
-
-    function closeInspectModal() {
-      AudioEngine.playClick();
-      setModalActive(false);
-      document.getElementById('inspect-modal').classList.add('hidden');
-    }
-
-    function closeQuoteModal() {
-      AudioEngine.playClick();
-      setModalActive(false);
-      document.getElementById('quote-modal').classList.add('hidden');
-    }
-
-    // Red Lockbox Modal Logic
-    let currentRedBoxCode = "";
-    function openRedBoxModal() {
-      if (GameState.redBoxUnlocked) {
-        showInspectModal("📦", "Red Box", "The box is open. Inside was the Golden Key.");
-        return;
-      }
-      setModalActive(true);
-      currentRedBoxCode = "";
-      updateRedBoxDisplay();
-      document.getElementById('redbox-modal').classList.remove('hidden');
-    }
-
-    function closeRedBoxModal() {
-      AudioEngine.playClick();
-      setModalActive(false);
-      document.getElementById('redbox-modal').classList.add('hidden');
-    }
-
-    function pressRedBoxDigit(d) {
-      AudioEngine.playClick();
-      if (currentRedBoxCode.length < 3) {
-        currentRedBoxCode += d;
-        updateRedBoxDisplay();
-      }
-    }
-
-    function clearRedBoxCode() {
-      AudioEngine.playClick();
-      currentRedBoxCode = "";
-      updateRedBoxDisplay();
-    }
-
-    function updateRedBoxDisplay() {
-      document.getElementById('redbox-display').innerText = currentRedBoxCode.padEnd(3, '_');
-    }
-
-    function submitRedBoxCode() {
-      if (currentRedBoxCode === GameState.redBoxCode) {
-        AudioEngine.playUnlock();
-        GameState.redBoxUnlocked = true;
-        closeRedBoxModal();
-        
-        if (redBoxLid) redBoxLid.rotation.x = -Math.PI * 0.65;
-
-        GameState.addItem("Golden Key");
-        showInspectModal("🔑", "Red Box Unlocked!", "Combination accepted! The box pops open to reveal a Golden Key!");
-      } else {
-        AudioEngine.playError();
-        showNotification("Incorrect Code! Check the Secret Book on the table.");
-        currentRedBoxCode = "";
-        updateRedBoxDisplay();
-      }
-    }
-
-    // Master Keypad Modal Logic
-    let currentDoorCode = "";
-    function openKeypadModal() {
-      if (GameState.doorUnlocked) {
-        showNotification("Door is unlocked! Walk right through into Room 2!");
-        return;
-      }
-      setModalActive(true);
-      currentDoorCode = "";
-      updateDoorKeypadDisplay();
-      document.getElementById('keypad-modal').classList.remove('hidden');
-    }
-
-    function closeKeypadModal() {
-      AudioEngine.playClick();
-      setModalActive(false);
-      document.getElementById('keypad-modal').classList.add('hidden');
-    }
-
-    function pressKeypadDigit(d) {
-      AudioEngine.playClick();
-      if (currentDoorCode.length < 4) {
-        currentDoorCode += d;
-        updateDoorKeypadDisplay();
-      }
-    }
-
-    function clearKeypadCode() {
-      AudioEngine.playClick();
-      currentDoorCode = "";
-      updateDoorKeypadDisplay();
-    }
-
-    function updateDoorKeypadDisplay() {
-      document.getElementById('keypad-display').innerText = currentDoorCode.padEnd(4, '_');
-    }
-
-    function submitKeypadCode() {
-      if (currentDoorCode === GameState.masterDoorCode) {
-        AudioEngine.playUnlock();
-        AudioEngine.playDoorCreak();
-        GameState.doorUnlocked = true;
-        closeKeypadModal();
-        
-        // Open door leaf physically
-        if (doorGroup) doorGroup.rotation.y = -Math.PI * 0.55;
-
-        showInspectModal(
-          "🚪",
-          "Passcode Accepted!",
-          "The heavy doorway unlocks and swings open! Walk right through using WASD keys to enter Room 2 (The Secret Vault)."
-        );
-      } else {
-        AudioEngine.playError();
-        showNotification("Access Denied! Passcode incorrect.");
-        currentDoorCode = "";
-        updateDoorKeypadDisplay();
-      }
-    }
-
-    // ==========================================
-    // THREE.JS SCENE, CAMERAS, & LIGHTING
-    // ==========================================
-    let scene, camera, renderer;
-    let raycaster, centerMouse;
-    let interactiveObjects = [];
-    let colliders = []; // Bounding boxes for player collision
-    let redBoxLid, doorGroup;
-    let hoveredObject = null;
-    let philosopherBookMesh = null;
-
-    // Player FPS State
-    const player = {
-      position: new THREE.Vector3(0, 1.6, 2.5),
-      yaw: 0,
-      pitch: 0,
-      radius: 0.35,
-      speed: 4.0,
-      footstepTimer: 0
-    };
-
-    const keysPressed = {};
-    let isMouseDown = false;
-    let previousMousePosition = { x: 0, y: 0 };
-
-    function init3D() {
-      const container = document.getElementById('canvas-container');
-
-      // 1. Scene setup
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x020617);
-      scene.fog = new THREE.FogExp2(0x020617, 0.035);
-
-      // 2. FPS Camera setup
-      camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
-      camera.position.copy(player.position);
-
-      // 3. Renderer
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      container.appendChild(renderer.domElement);
-
-      // 4. Lighting
-      const ambientLight = new THREE.AmbientLight(0xc7d2fe, 0.55);
-      scene.add(ambientLight);
-
-      // Room 1 SpotLight
-      const room1Light = new THREE.SpotLight(0xffedd5, 1.6);
-      room1Light.position.set(0, 3.8, 0);
-      room1Light.angle = Math.PI / 3;
-      room1Light.penumbra = 0.4;
-      room1Light.castShadow = true;
-      scene.add(room1Light);
-
-      // Room 2 Vault SpotLight (Cyan tint)
-      const room2Light = new THREE.SpotLight(0x06b6d4, 1.8);
-      room2Light.position.set(-12, 3.8, 0);
-      room2Light.angle = Math.PI / 3;
-      room2Light.penumbra = 0.3;
-      room2Light.castShadow = true;
-      scene.add(room2Light);
-
-      // 5. Build Both Rooms & Colliders
-      buildRoom1();
-      buildRoom2Vault();
-
-      // 6. Raycaster for center crosshair
-      raycaster = new THREE.Raycaster();
-      centerMouse = new THREE.Vector2(0, 0);
-
-      // 7. Event Listeners
-      setupInputListeners();
-
-      // Start Rendering & Movement Loop
-      clock = new THREE.Clock();
-      animate();
-    }
-
-    function registerInteractive(mesh, name, onInteract, maxDist = 3.5) {
-      mesh.userData = { 
-        name, 
-        onInteract, 
-        maxDist,
-        originalEmissive: mesh.material.emissive ? mesh.material.emissive.getHex() : 0x000000 
-      };
-      interactiveObjects.push(mesh);
-    }
-
-    function addCollider(minX, maxX, minZ, maxZ) {
-      colliders.push({ minX, maxX, minZ, maxZ });
-    }
-
-    // ==========================================
-    // ROOM 1 CONSTRUCTION (THE STUDY)
-    // ==========================================
-    function buildRoom1() {
-      const roomW = 8, roomD = 8, roomH = 4;
-
-      // Outer Colliders for Room 1
-      addCollider(-4.0, 4.0, -4.1, -3.9); // North Wall
-      addCollider(-4.0, 4.0, 3.9, 4.1);   // South Wall
-      addCollider(3.9, 4.1, -4.0, 4.0);   // East Wall
-
-      // Floor
-      const floorGeo = new THREE.PlaneGeometry(roomW, roomD);
-      const floorMat = new THREE.MeshStandardMaterial({ color: 0x331e11, roughness: 0.6 });
-      const floor = new THREE.Mesh(floorGeo, floorMat);
-      floor.rotation.x = -Math.PI / 2;
-      floor.receiveShadow = true;
-      scene.add(floor);
-
-      // Ceiling
-      const ceilingGeo = new THREE.PlaneGeometry(roomW, roomD);
-      const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
-      const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat);
-      ceiling.position.y = roomH;
-      ceiling.rotation.x = Math.PI / 2;
-      scene.add(ceiling);
-
-      const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
-
-      // North Wall
-      const wallNorth = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomH), wallMat);
-      wallNorth.position.set(0, roomH / 2, -roomD / 2);
-      scene.add(wallNorth);
-
-      // South Wall
-      const wallSouth = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomH), wallMat);
-      wallSouth.position.set(0, roomH / 2, roomD / 2);
-      wallSouth.rotation.y = Math.PI;
-      scene.add(wallSouth);
-
-      // East Wall
-      const wallEast = new THREE.Mesh(new THREE.PlaneGeometry(roomD, roomH), wallMat);
-      wallEast.position.set(roomW / 2, roomH / 2, 0);
-      wallEast.rotation.y = -Math.PI / 2;
-      scene.add(wallEast);
-
-      // West Wall (Partition with Doorway to Room 2)
-      const wallWestNorth = new THREE.Mesh(new THREE.PlaneGeometry(3.0, roomH), wallMat);
-      wallWestNorth.position.set(-roomW / 2, roomH / 2, -2.5);
-      wallWestNorth.rotation.y = Math.PI / 2;
-      scene.add(wallWestNorth);
-      addCollider(-4.1, -3.9, -4.0, -1.0); // Partition North Collider
-
-      const wallWestSouth = new THREE.Mesh(new THREE.PlaneGeometry(3.0, roomH), wallMat);
-      wallWestSouth.position.set(-roomW / 2, roomH / 2, 2.5);
-      wallWestSouth.rotation.y = Math.PI / 2;
-      scene.add(wallWestSouth);
-      addCollider(-4.1, -3.9, 1.0, 4.0); // Partition South Collider
-
-      const wallWestTop = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 1.4), wallMat);
-      wallWestTop.position.set(-roomW / 2, 3.3, 0);
-      wallWestTop.rotation.y = Math.PI / 2;
-      scene.add(wallWestTop);
-
-      // --- CENTER TABLE & BENCH ---
-      const tableTop = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 1.2), new THREE.MeshStandardMaterial({ color: 0x543310, roughness: 0.7 }));
-      tableTop.position.set(0, 0.9, -1);
-      tableTop.castShadow = true;
-      scene.add(tableTop);
-      addCollider(-1.2, 1.2, -1.7, -0.3); // Table Collider
-
-      const legGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.9);
-      const woodMat = new THREE.MeshStandardMaterial({ color: 0x3d2314 });
-      [[-1.0, 0.45, -1.5], [1.0, 0.45, -1.5], [-1.0, 0.45, -0.5], [1.0, 0.45, -0.5]].forEach(pos => {
-        const leg = new THREE.Mesh(legGeo, woodMat);
-        leg.position.set(...pos);
-        leg.castShadow = true;
-        scene.add(leg);
-      });
-
-      registerInteractive(tableTop, "Study Table", () => showNotification("A solid wooden table holding key items."));
-
-      // --- SECRET BOOK (TABLE) ---
-      const secretBook = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.06, 0.45), new THREE.MeshStandardMaterial({ color: 0x15803d }));
-      secretBook.position.set(0.5, 0.98, -0.8);
-      secretBook.rotation.y = -0.3;
-      scene.add(secretBook);
-
-      registerInteractive(secretBook, "Green Notebook", () => {
-        GameState.addItem("Secret Note");
-        showInspectModal(
-          "📖",
-          "Green Notebook",
-          "A note inside states: 'Red Box combination code = 314. Check the bookshelf for the philosopher's quote!'"
-        );
-      });
-
-      // --- RED LOCKBOX ---
-      const redBoxGroup = new THREE.Group();
-      redBoxGroup.position.set(-0.6, 0.95, -1.0);
-
-      const redMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.4 });
-      const redBoxBody = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.2, 0.35), redMat);
-      redBoxBody.position.y = 0.1;
-      redBoxGroup.add(redBoxBody);
-
-      redBoxLid = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.04, 0.36), redMat);
-      redBoxLid.position.set(0, 0.2, -0.17);
-      redBoxGroup.add(redBoxLid);
-
-      scene.add(redBoxGroup);
-      registerInteractive(redBoxBody, "Red Lockbox", openRedBoxModal);
-
-      // --- BLUE GLOWING SPHERE ---
-      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.8, 16), new THREE.MeshStandardMaterial({ color: 0x334155 }));
-      pedestal.position.set(2.5, 0.4, -2);
-      scene.add(pedestal);
-      addCollider(2.1, 2.9, -2.4, -1.6); // Pedestal Collider
-
-      const sphereMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, emissive: 0x1d4ed8, emissiveIntensity: 0.5 });
-      const blueSphere = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 32), sphereMat);
-      blueSphere.position.set(2.5, 1.08, -2);
-      scene.add(blueSphere);
-
-      registerInteractive(blueSphere, "Glowing Blue Orb", () => {
-        if (!GameState.sphereUnlocked) {
-          if (GameState.hasItem("Golden Key")) {
-            AudioEngine.playUnlock();
-            GameState.sphereUnlocked = true;
-            GameState.addItem("Vault Power Cell");
-            sphereMat.emissive.setHex(0x10b981);
-            showInspectModal("🔮", "Orb Activated!", "You inserted the Golden Key! The orb turns green and powers up a Vault Power Cell!");
-          } else {
-            AudioEngine.playError();
-            showInspectModal("🔮", "Locked Orb", "Requires a Golden Key from the Red Box to unlock its energy cell.");
-          }
-        } else {
-          showNotification("Orb power cell has already been retrieved.");
-        }
-      });
-
-      // --- WALL CLOCK ---
-      const clockGroup = new THREE.Group();
-      clockGroup.position.set(-1.8, 2.6, -3.92);
-      const clockFrame = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.05, 32), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
-      clockFrame.rotation.x = Math.PI / 2;
-      clockGroup.add(clockFrame);
-
-      const handMat = new THREE.MeshBasicMaterial({ color: 0x090d16 });
-      const hHand = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.22, 0.02), handMat);
-      hHand.position.set(-0.08, -0.05, 0.03);
-      hHand.rotation.z = 2.2;
-      clockGroup.add(hHand);
-
-      const mHand = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.32, 0.02), handMat);
-      mHand.position.set(0.1, 0.05, 0.03);
-      mHand.rotation.z = -1.2;
-      clockGroup.add(mHand);
-
-      scene.add(clockGroup);
-      registerInteractive(clockFrame, "Wall Clock", () => {
-        showInspectModal("🕰️", "Wall Clock", "The hands are frozen pointing at 7:42. A clue to the passcode!");
-      });
-
-      // --- BOOKSHELF & BOOKS ---
-      buildBookshelf();
-
-      // --- MAIN DOORWAY TO ROOM 2 ---
-      doorGroup = new THREE.Group();
-      doorGroup.position.set(-3.95, 0, -1.0); // Door hinge
-
-      const doorLeaf = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.5, 1.25), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4 }));
-      doorLeaf.position.set(0, 1.25, 0.625);
-      doorGroup.add(doorLeaf);
-
-      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8 }));
-      knob.position.set(0.08, 1.1, 1.1);
-      doorGroup.add(knob);
-
-      scene.add(doorGroup);
-
-      registerInteractive(doorLeaf, "Door to Room 2", () => {
-        if (!GameState.doorUnlocked) {
-          openKeypadModal();
-        } else {
-          showNotification("Door is open! Walk right through to Room 2.");
-        }
-      });
-
-      // Keypad Panel on West Wall
-      const keypadBox = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.4, 0.28), new THREE.MeshStandardMaterial({ color: 0x020617 }));
-      keypadBox.position.set(-3.92, 1.4, -1.8);
-      scene.add(keypadBox);
-
-      registerInteractive(keypadBox, "Door Keypad Panel", openKeypadModal);
-    }
-
-    // ==========================================
-    // BOOKSHELF & BOOK GENERATOR
-    // ==========================================
-    function buildBookshelf() {
-      const shelfGroup = new THREE.Group();
-      shelfGroup.position.set(2.8, 0, 3.8); // East/South corner of Room 1
-      shelfGroup.rotation.y = -Math.PI / 2;
-
-      addCollider(2.3, 3.9, 2.6, 4.0); // Bookshelf Collider
-
-      const shelfWoodMat = new THREE.MeshStandardMaterial({ color: 0x2e1809, roughness: 0.7 });
-
-      // Frame Sides
-      const sideLeft = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.2, 0.5), shelfWoodMat);
-      sideLeft.position.set(-1.1, 1.6, 0);
-      shelfGroup.add(sideLeft);
-
-      const sideRight = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.2, 0.5), shelfWoodMat);
-      sideRight.position.set(1.1, 1.6, 0);
-      shelfGroup.add(sideRight);
-
-      // Horizontal Shelves
-      [0.1, 0.9, 1.7, 2.5, 3.1].forEach(y => {
-        const shelfBar = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.08, 0.48), shelfWoodMat);
-        shelfBar.position.set(0, y, 0);
-        shelfGroup.add(shelfBar);
-      });
-
-      // Populate Shelves with Dozens of Colorful Books
-      const bookColors = [0x991b1b, 0x1e3a8a, 0x065f46, 0x7c2d12, 0x4c1d95, 0x334155, 0xb45309];
-      const bookTitles = [
-        "A History of Ancient Keys", "Dusty Encyclopedia Vol. 4", "Alchemy & Metallurgy",
-        "Chronicles of the Chamber", "Starlight Navigation", "Elements of Architecture",
-        "The Lost Cipher", "Mathematical Curiosities", "Principles of Clockwork", "The Art of Lockpicking"
-      ];
-
-      let titleIdx = 0;
-      [0.98, 1.78, 2.58].forEach((shelfY, shelfLevel) => {
-        let currentX = -0.95;
-        while (currentX < 0.9) {
-          const width = 0.08 + Math.random() * 0.06;
-          const height = 0.35 + Math.random() * 0.12;
-          const depth = 0.28 + Math.random() * 0.08;
-          const color = bookColors[Math.floor(Math.random() * bookColors.length)];
-
-          const isSpecial = (shelfLevel === 1 && currentX > -0.1 && currentX < 0.1 && !philosopherBookMesh);
-
-          let bookMat;
-          if (isSpecial) {
-            bookMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.3, metalness: 0.2 });
-          } else {
-            bookMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
-          }
-
-          const bookMesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), bookMat);
-          bookMesh.position.set(currentX + width / 2, shelfY + height / 2, 0);
-
-          shelfGroup.add(bookMesh);
-
-          if (isSpecial) {
-            philosopherBookMesh = bookMesh;
-            registerInteractive(bookMesh, "Philosopher's Journal", () => {
-              AudioEngine.playBookPull();
-              
-              if (!GameState.specialBookPulled) {
-                GameState.specialBookPulled = true;
-                bookMesh.position.z += 0.15;
-              }
-
-              setModalActive(true);
-              document.getElementById('quote-modal').classList.remove('hidden');
-            });
-          } else {
-            const chosenTitle = bookTitles[titleIdx % bookTitles.length];
-            titleIdx++;
-            registerInteractive(bookMesh, chosenTitle, () => {
-              showNotification(`📖 "${chosenTitle}" — No secrets hidden here.`);
-            });
-          }
-
-          currentX += width + 0.02;
-        }
-      });
-
-      scene.add(shelfGroup);
-    }
-
-    // ==========================================
-    // ROOM 2 CONSTRUCTION (SECRET VAULT)
-    // ==========================================
-    function buildRoom2Vault() {
-      const roomW = 8, roomD = 8, roomH = 4;
-      const offsetX = -12; // Room 2 is directly West of Room 1
-
-      // Outer Colliders for Room 2
-      addCollider(-16.0, -8.0, -4.1, -3.9); // North Wall
-      addCollider(-16.0, -8.0, 3.9, 4.1);   // South Wall
-      addCollider(-16.1, -15.9, -4.0, 4.0); // West Outer Wall
-
-      // Floor
-      const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(roomW, roomD),
-        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.3 })
-      );
-      floor.position.x = offsetX;
-      floor.rotation.x = -Math.PI / 2;
-      floor.receiveShadow = true;
-      scene.add(floor);
-
-      // Ceiling
-      const ceiling = new THREE.Mesh(
-        new THREE.PlaneGeometry(roomW, roomD),
-        new THREE.MeshStandardMaterial({ color: 0x020617 })
-      );
-      ceiling.position.set(offsetX, roomH, 0);
-      ceiling.rotation.x = Math.PI / 2;
-      scene.add(ceiling);
-
-      const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
-
-      // North Wall
-      const wallNorth = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomH), wallMat);
-      wallNorth.position.set(offsetX, roomH / 2, -roomD / 2);
-      scene.add(wallNorth);
-
-      // South Wall
-      const wallSouth = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomH), wallMat);
-      wallSouth.position.set(offsetX, roomH / 2, roomD / 2);
-      wallSouth.rotation.y = Math.PI;
-      scene.add(wallSouth);
-
-      // West Wall (Final Exit)
-      const wallWest = new THREE.Mesh(new THREE.PlaneGeometry(roomD, roomH), wallMat);
-      wallWest.position.set(offsetX - roomW / 2, roomH / 2, 0);
-      wallWest.rotation.y = Math.PI / 2;
-      scene.add(wallWest);
-
-      // --- VAULT CONTAINMENT UNIT ---
-      const vaultPedestal = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.6, 0.8, 0.9, 16),
-        new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6 })
-      );
-      vaultPedestal.position.set(offsetX, 0.45, 0);
-      scene.add(vaultPedestal);
-      addCollider(-12.8, -11.2, -0.8, 0.8); // Vault Core Collider
-
-      const vaultGlass = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.5, 0.5, 1.0, 16),
-        new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 })
-      );
-      vaultGlass.position.set(offsetX, 1.4, 0);
-      scene.add(vaultGlass);
-
-      // Master Key inside Vault
-      const masterKey = new THREE.Mesh(
-        new THREE.TorusGeometry(0.15, 0.04, 16, 32),
-        new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 })
-      );
-      masterKey.position.set(offsetX, 1.4, 0);
-      scene.add(masterKey);
-
-      registerInteractive(vaultGlass, "Vault Core", () => {
-        if (!GameState.vaultUnlocked) {
-          if (GameState.hasItem("Vault Power Cell")) {
-            AudioEngine.playUnlock();
-            GameState.vaultUnlocked = true;
-            GameState.addItem("Master Vault Pass");
-            vaultGlass.material.opacity = 0.1;
-            showInspectModal("⚡", "Vault Disarmed!", "You inserted the Vault Power Cell! The forcefield retracts, giving you the Master Vault Pass!");
-          } else {
-            AudioEngine.playError();
-            showInspectModal("🔒", "Containment Vault", "Requires the Vault Power Cell from Room 1's Blue Orb to disarm the forcefield.");
-          }
-        } else {
-          showNotification("Vault forcefield is powered down.");
-        }
-      });
-
-      // --- FINAL EXIT DOOR (ROOM 2) ---
-      const exitDoorMat = new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.5 });
-      const finalExitDoor = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.8, 1.6), exitDoorMat);
-      finalExitDoor.position.set(offsetX - 3.95, 1.4, 0);
-      scene.add(finalExitDoor);
-
-      registerInteractive(finalExitDoor, "Final Escape Hatch", () => {
-        if (GameState.vaultUnlocked && GameState.hasItem("Master Vault Pass")) {
-          AudioEngine.playUnlock();
-          setModalActive(true);
-          document.getElementById('victory-modal').classList.remove('hidden');
-        } else {
-          AudioEngine.playError();
-          showInspectModal("🚨", "Locked Hatch", "Insert the Master Vault Pass from the central vault core to escape!");
-        }
-      });
-    }
-
-    // ==========================================
-    // FPS INPUT & MOVEMENT ENGINE
-    // ==========================================
-    function setupInputListeners() {
-      // Keyboard Down
-      window.addEventListener('keydown', (e) => {
-        if (isModalOpen) return;
-        keysPressed[e.key.toLowerCase()] = true;
-      });
-
-      // Keyboard Up
-      window.addEventListener('keyup', (e) => {
-        keysPressed[e.key.toLowerCase()] = false;
-      });
-
-      // Mouse Look Dragging
-      window.addEventListener('pointerdown', (e) => {
-        if (isModalOpen) return;
-        
-        // If clicking on UI, ignore
-        if (e.target.closest('#hud-overlay, .modal-backdrop')) return;
-
-        isMouseDown = true;
-        previousMousePosition = { x: e.clientX, y: e.clientY };
-
-        // Attempt direct crosshair interaction on click
-        checkCrosshairInteraction();
-      });
-
-      window.addEventListener('pointermove', (e) => {
-        if (!isMouseDown || isModalOpen) return;
-
-        const deltaX = e.clientX - previousMousePosition.x;
-        const deltaY = e.clientY - previousMousePosition.y;
-
-        player.yaw -= deltaX * 0.003;
-        player.pitch -= deltaY * 0.003;
-
-        // Clamp pitch so camera doesn't flip upside down
-        player.pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, player.pitch));
-
-        previousMousePosition = { x: e.clientX, y: e.clientY };
-      });
-
-      window.addEventListener('pointerup', () => {
-        isMouseDown = false;
-      });
-
-      // Mobile Touch D-Pad Setup
-      const setupDpadButton = (id, key) => {
-        const btn = document.getElementById(id);
-        if (!btn) return;
-        btn.addEventListener('touchstart', (e) => { e.preventDefault(); keysPressed[key] = true; });
-        btn.addEventListener('touchend', (e) => { e.preventDefault(); keysPressed[key] = false; });
-        btn.addEventListener('mousedown', () => { keysPressed[key] = true; });
-        btn.addEventListener('mouseup', () => { keysPressed[key] = false; });
-      };
-
-      setupDpadButton('btn-up', 'w');
-      setupDpadButton('btn-down', 's');
-      setupDpadButton('btn-left', 'a');
-      setupDpadButton('btn-right', 'd');
-
-      window.addEventListener('resize', onWindowResize);
-    }
-
-    function updatePlayerMovement(deltaTime) {
-      if (isModalOpen) return;
-
-      const moveVector = new THREE.Vector3(0, 0, 0);
-
-      if (keysPressed['w'] || keysPressed['arrowup']) moveVector.z -= 1;
-      if (keysPressed['s'] || keysPressed['arrowdown']) moveVector.z += 1;
-      if (keysPressed['a'] || keysPressed['arrowleft']) moveVector.x -= 1;
-      if (keysPressed['d'] || keysPressed['arrowright']) moveVector.x += 1;
-
-      if (moveVector.lengthSq() > 0) {
-        moveVector.normalize();
-
-        // Calculate view directions
-        const forward = new THREE.Vector3(
-          -Math.sin(player.yaw),
-          0,
-          -Math.cos(player.yaw)
-        ).normalize();
-
-        const right = new THREE.Vector3(
-          Math.cos(player.yaw),
-          0,
-          -Math.sin(player.yaw)
-        ).normalize();
-
-        const deltaMove = new THREE.Vector3()
-          .addScaledVector(forward, -moveVector.z * player.speed * deltaTime)
-          .addScaledVector(right, moveVector.x * player.speed * deltaTime);
-
-        // Attempt movement along X with collision
-        const nextPosX = player.position.x + deltaMove.x;
-        if (!checkPlayerCollision(nextPosX, player.position.z)) {
-          player.position.x = nextPosX;
-        }
-
-        // Attempt movement along Z with collision
-        const nextPosZ = player.position.z + deltaMove.z;
-        if (!checkPlayerCollision(player.position.x, nextPosZ)) {
-          player.position.z = nextPosZ;
-        }
-
-        // Footstep sounds
-        player.footstepTimer += deltaTime;
-        if (player.footstepTimer > 0.45) {
-          AudioEngine.playFootstep();
-          player.footstepTimer = 0;
-        }
-
-        // Check active room badge update based on position
-        if (player.position.x < -4.2 && GameState.currentRoom === 1) {
-          updateRoomUIBadge(2);
-        } else if (player.position.x >= -4.0 && GameState.currentRoom === 2) {
-          updateRoomUIBadge(1);
-        }
-      }
-
-      // Update Camera Quaternion & Position
-      const euler = new THREE.Euler(player.pitch, player.yaw, 0, 'YXZ');
-      camera.quaternion.setFromEuler(euler);
-      camera.position.copy(player.position);
-
-      // Check center crosshair target
-      updateCrosshairTarget();
-    }
-
-    function checkPlayerCollision(posX, posZ) {
-      // Check if door is closed and blocking passage between rooms
-      if (!GameState.doorUnlocked && posX < -3.8 && posZ > -1.8 && posZ < -0.2) {
-        return true;
-      }
-
-      for (let c of colliders) {
-        if (posX + player.radius > c.minX && posX - player.radius < c.maxX &&
-            posZ + player.radius > c.minZ && posZ - player.radius < c.maxZ) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    function updateRoomUIBadge(roomNum) {
-      GameState.currentRoom = roomNum;
-      const titleBadge = document.getElementById('room-badge-title');
-      const iconBadge = document.getElementById('room-badge-icon');
-      const objText = document.getElementById('objective-text');
-
-      if (roomNum === 1) {
-        titleBadge.innerText = "Room 1: The Study";
-        iconBadge.innerText = "🏛️";
-        objText.innerText = "Explore using WASD. Inspect the bookshelf, clock, and lockbox to escape!";
-      } else {
-        titleBadge.innerText = "Room 2: Secret Vault";
-        iconBadge.innerText = "🔐";
-        objText.innerText = "Disarm the central vault core using the power cell to escape the complex!";
-      }
-      showNotification(`Walked into ${roomNum === 1 ? 'Room 1 (The Study)' : 'Room 2 (Secret Vault)'}`);
-    }
-
-    // Raycast Crosshair Target Check
-    function updateCrosshairTarget() {
-      raycaster.setFromCamera(centerMouse, camera);
-      const intersects = raycaster.intersectObjects(interactiveObjects);
-
-      const crosshairEl = document.getElementById('crosshair');
-
-      if (intersects.length > 0) {
-        const hit = intersects[0];
-        const maxDist = hit.object.userData.maxDist || 3.5;
-
-        if (hit.distance <= maxDist) {
-          if (hoveredObject !== hit.object) {
-            resetHover();
-            hoveredObject = hit.object;
-            crosshairEl.classList.add('active');
-
-            if (hoveredObject.material && hoveredObject.material.emissive) {
-              hoveredObject.material.emissive.setHex(0xf59e0b);
-              hoveredObject.material.emissiveIntensity = 0.5;
-            }
-          }
-          return;
-        }
-      }
-
-      resetHover();
-      crosshairEl.classList.remove('active');
-    }
-
-    function checkCrosshairInteraction() {
-      if (hoveredObject && hoveredObject.userData && hoveredObject.userData.onInteract) {
-        hoveredObject.userData.onInteract();
-      }
-    }
-
-    function resetHover() {
-      if (hoveredObject) {
-        if (hoveredObject.material && hoveredObject.material.emissive) {
-          const orig = hoveredObject.userData.originalEmissive || 0x000000;
-          hoveredObject.material.emissive.setHex(orig);
-          hoveredObject.material.emissiveIntensity = orig === 0x1d4ed8 ? 0.5 : 0;
-        }
-        hoveredObject = null;
-      }
-    }
-
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-
-    let clock;
-    function animate() {
-      requestAnimationFrame(animate);
-      const deltaTime = Math.min(clock.getDelta(), 0.1);
-
-      updatePlayerMovement(deltaTime);
-      renderer.render(scene, camera);
-    }
-
-    // Initialize 3D FPS Game on Load
-    window.addEventListener('load', () => {
-      init3D();
-    });
-  </script>
+  });
+
+  // vault core
+  box(1.2,.9,1.2,-11,.45,0,0x334155,{metalness:.5,roughness:.4});collide(-11.8,-10.2,-.7,.7);
+  glassMat=new THREE.MeshStandardMaterial({color:0x38bdf8,transparent:true,opacity:.35});
+  const vg=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,1,20),glassMat);vg.position.set(-11,1.4,0);scene.add(vg);
+  keyMesh=new THREE.Mesh(new THREE.TorusGeometry(.15,.04,12,28),new THREE.MeshStandardMaterial({color:0xf59e0b,metalness:.9,roughness:.2}));
+  keyMesh.position.set(-11,1.4,0);scene.add(keyMesh);
+  reg(vg,'Vault Core',function(){
+    if(S.vault){notify('The forcefield is already down.');return}
+    if(!has('Power Cell')){SFX.bad();simpleModal('🔒','Containment Vault','Needs a power cell to disarm.');return}
+    S.vault=true;glassMat.opacity=.08;add('Vault Pass');
+    simpleModal('⚡','Vault Disarmed','The power cell slots in — the field retracts, and the master pass is yours.');
+  });
+
+  // escape hatch
+  const hatch=box(.1,2.6,1.5,-14.95,1.3,0,0x10b981,{metalness:.4});
+  reg(hatch,'Escape Hatch',function(){
+    if(S.vault&&has('Vault Pass')){SFX.ok();modalOpen=true;document.getElementById('victory').classList.remove('hidden')}
+    else{SFX.bad();simpleModal('🚨','Sealed Hatch','Bring the master vault pass to open this.')}
+  });
+
+  ray=new THREE.Raycaster();clock=new THREE.Clock();
+  bindInput();animate.l1=l1;animate.l2=l2;animate();
+}
+
+function bindInput(){
+  addEventListener('keydown',function(e){if(!modalOpen)keys[e.key.toLowerCase()]=true});
+  addEventListener('keyup',function(e){keys[e.key.toLowerCase()]=false});
+  addEventListener('pointerdown',function(e){if(modalOpen||e.target.closest('#modal,#victory'))return;down=true;prev={x:e.clientX,y:e.clientY};interact()});
+  addEventListener('pointermove',function(e){if(!down||modalOpen)return;
+    player.yaw-=(e.clientX-prev.x)*.003;player.pitch=Math.max(-1.3,Math.min(1.3,player.pitch-(e.clientY-prev.y)*.003));
+    prev={x:e.clientX,y:e.clientY}});
+  addEventListener('pointerup',function(){down=false});
+  function db(id,k){const b=document.getElementById(id);if(!b)return;
+    ['touchstart','mousedown'].forEach(function(ev){b.addEventListener(ev,function(e){e.preventDefault();keys[k]=true})});
+    ['touchend','mouseup'].forEach(function(ev){b.addEventListener(ev,function(e){e.preventDefault();keys[k]=false})});
+  }
+  db('bU','w');db('bD','s');db('bL','a');db('bR','d');
+  addEventListener('resize',function(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+}
+
+function blocked(x,z){
+  if(!S.door&&x<-3.8&&z>-1.8&&z<.2)return true;
+  for(const c of colliders)if(x+player.r>c.x0&&x-player.r<c.x1&&z+player.r>c.z0&&z-player.r<c.z1)return true;
+  return false;
+}
+function move(dt){
+  if(modalOpen)return;
+  const v=new THREE.Vector3();
+  if(keys.w||keys.arrowup)v.z-=1; if(keys.s||keys.arrowdown)v.z+=1;
+  if(keys.a||keys.arrowleft)v.x-=1; if(keys.d||keys.arrowright)v.x+=1;
+  if(v.lengthSq()){
+    v.normalize();
+    const fwd=new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
+    const right=new THREE.Vector3(Math.cos(player.yaw),0,-Math.sin(player.yaw));
+    const d=new THREE.Vector3().addScaledVector(fwd,-v.z*player.speed*dt).addScaledVector(right,v.x*player.speed*dt);
+    if(!blocked(player.pos.x+d.x,player.pos.z))player.pos.x+=d.x;
+    if(!blocked(player.pos.x,player.pos.z+d.z))player.pos.z+=d.z;
+    player.step+=dt;if(player.step>.45){SFX.step();player.step=0}
+    const inRoom2=player.pos.x<-4.2;
+    if(inRoom2&&S.room===1){S.room=2;document.getElementById('rIcon').textContent='🔐';document.getElementById('rTitle').textContent='The Vault';document.getElementById('rObj').textContent='Disarm the core, then reach the hatch.';notify('Entered the Vault')}
+    else if(!inRoom2&&S.room===2){S.room=1;document.getElementById('rIcon').textContent='🏛️';document.getElementById('rTitle').textContent='The Study';document.getElementById('rObj').textContent='Click the book, box and orb to work the puzzle.';notify('Back in the Study')}
+  }
+  camera.quaternion.setFromEuler(new THREE.Euler(player.pitch,player.yaw,0,'YXZ'));
+  camera.position.copy(player.pos);
+}
+function crosshairUpdate(){
+  ray.setFromCamera({x:0,y:0},camera);
+  const hit=ray.intersectObjects(objs)[0];
+  const c=document.getElementById('cross');
+  if(hovered){hovered.material.emissive.setHex(hovered.userData.em);hovered=null}
+  if(hit&&hit.distance<=hit.object.userData.dist){
+    hovered=hit.object;c.classList.add('on');hovered.material.emissive.setHex(0xf59e0b);
+  } else c.classList.remove('on');
+}
+function interact(){if(hovered)hovered.userData.fn()}
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.1),t=clock.elapsedTime;
+  move(dt);crosshairUpdate();
+  if(animate.l1)animate.l1.intensity=1.3+Math.sin(t*3)*.1;
+  if(animate.l2)animate.l2.intensity=1.5+Math.sin(t*4+1)*.15;
+  keyMesh.rotation.y+=dt*.6;
+  renderer.render(scene,camera);
+}
+addEventListener('load',function(){drawInv();init()});
+</script>
 </body>
 </html>
