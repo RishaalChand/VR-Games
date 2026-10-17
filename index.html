@@ -3,35 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Escape Room — Lumen Vault</title>
+<title>Escape Room — Lumen Vault: Celestial Edition</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:#01040c;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;user-select:none;touch-action:none;color:#e7e9ee}
 #c{position:fixed;inset:0}
-#vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.55) 100%);z-index:5}
-#grain{position:fixed;inset:0;pointer-events:none;opacity:.05;z-index:6;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-.crosshair{position:fixed;top:50%;left:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border:1.5px solid rgba(34,211,238,.8);transform:rotate(45deg);transition:.15s;pointer-events:none;z-index:10;box-shadow:0 0 6px rgba(34,211,238,.5)}
-.crosshair::after{content:'';position:absolute;inset:5px;background:rgba(34,211,238,.9);border-radius:50%}
-.crosshair.on{border-color:#a5f3fc;transform:rotate(45deg) scale(1.6);box-shadow:0 0 16px #a5f3fc}
+#vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.75) 100%);z-index:5}
+#grain{position:fixed;inset:0;pointer-events:none;opacity:.06;z-index:6;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.crosshair{position:fixed;top:50%;left:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border:1.5px solid rgba(56,189,248,.85);transform:rotate(45deg);transition:.15s;pointer-events:none;z-index:10;box-shadow:0 0 8px rgba(56,189,248,.6)}
+.crosshair::after{content:'';position:absolute;inset:5px;background:rgba(56,189,248,.95);border-radius:50%}
+.crosshair.on{border-color:#34d399;transform:rotate(45deg) scale(1.6);box-shadow:0 0 18px #34d399}
 .crosshair.on::after{background:#fff}
-.dp{background:rgba(11,16,32,.8);border:1px solid rgba(34,211,238,.25);color:#fff;font-weight:700;touch-action:manipulation}
-.dp:active{background:rgba(245,158,11,.85);color:#0b1020}
-.keybtn{background:#131a2e;color:#fff;font-weight:700;border-radius:.6rem;padding:.75rem 0;border:1px solid rgba(34,211,238,.25);font-family:'Share Tech Mono',ui-monospace,monospace}
-.keybtn:active{background:#f59e0b;color:#0b1020}
-@keyframes pulseGlow{0%,100%{box-shadow:0 0 18px rgba(34,211,238,.15)}50%{box-shadow:0 0 34px rgba(34,211,238,.4)}}
-.glow-box{animation:pulseGlow 3.2s ease-in-out infinite}
-h1,h2{font-family:'Orbitron',ui-sans-serif,system-ui,sans-serif;letter-spacing:.02em}
+.dp{background:rgba(15,23,42,.85);border:1px solid rgba(56,189,248,.3);color:#fff;font-weight:700;touch-action:manipulation;backdrop-filter:blur(4px)}
+.dp:active{background:rgba(245,158,11,.9);color:#020617}
+.keybtn{background:#0f172a;color:#38bdf8;font-weight:700;border-radius:.7rem;padding:.8rem 0;border:1px solid rgba(56,189,248,.3);font-family:'Share Tech Mono',ui-monospace,monospace;transition:.1s}
+.keybtn:active{background:#f59e0b;color:#020617;border-color:#f59e0b}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 20px rgba(56,189,248,.2)}50%{box-shadow:0 0 40px rgba(56,189,248,.5)}}
+.glow-box{animation:pulseGlow 3s ease-in-out infinite}
+h1,h2{font-family:'Orbitron',ui-sans-serif,system-ui,sans-serif;letter-spacing:.03em}
 #invCount,#slLabel,#mDisp{font-family:'Share Tech Mono',ui-monospace,monospace}
-.hud-corner{position:fixed;width:22px;height:22px;border-style:solid;border-color:rgba(34,211,238,.45);pointer-events:none;z-index:7}
+.hud-corner{position:fixed;width:26px;height:26px;border-style:solid;border-color:rgba(56,189,248,.5);pointer-events:none;z-index:7}
 #scan{position:fixed;inset:0;pointer-events:none;z-index:6;overflow:hidden}
-#scan::before{content:'';position:absolute;left:0;right:0;height:130px;top:-130px;background:linear-gradient(rgba(34,211,238,0),rgba(34,211,238,.07),rgba(34,211,238,0));animation:scanmove 7s linear infinite}
+#scan::before{content:'';position:absolute;left:0;right:0;height:140px;top:-140px;background:linear-gradient(rgba(56,189,248,0),rgba(56,189,248,.06),rgba(56,189,248,0));animation:scanmove 6s linear infinite}
 @keyframes scanmove{to{top:100%}}
-.hud-glow{box-shadow:0 0 18px rgba(34,211,238,.1),inset 0 0 24px rgba(34,211,238,.03)}
+.hud-glow{box-shadow:0 0 20px rgba(56,189,248,.12),inset 0 0 30px rgba(56,189,248,.04)}
 </style>
 </head>
 <body>
@@ -39,101 +39,126 @@ h1,h2{font-family:'Orbitron',ui-sans-serif,system-ui,sans-serif;letter-spacing:.
 <div id="vignette"></div>
 <div id="grain"></div>
 <div id="scan"></div>
-<div class="hud-corner" style="top:14px;left:14px;border-width:2px 0 0 2px"></div>
-<div class="hud-corner" style="top:14px;right:14px;border-width:2px 2px 0 0"></div>
-<div class="hud-corner" style="bottom:14px;left:14px;border-width:0 0 2px 2px"></div>
-<div class="hud-corner" style="bottom:14px;right:14px;border-width:0 2px 2px 0"></div>
+<div class="hud-corner" style="top:16px;left:16px;border-width:2px 0 0 2px"></div>
+<div class="hud-corner" style="top:16px;right:16px;border-width:2px 2px 0 0"></div>
+<div class="hud-corner" style="bottom:16px;left:16px;border-width:0 0 2px 2px"></div>
+<div class="hud-corner" style="bottom:16px;right:16px;border-width:0 2px 2px 0"></div>
 <div class="crosshair" id="cross"></div>
-<div id="hoverLabel" class="fixed left-1/2 z-10 -translate-x-1/2 text-[11px] font-semibold text-amber-300 bg-slate-900/80 px-2.5 py-1 rounded-full pointer-events-none opacity-0 transition-opacity" style="top:calc(50% + 22px)"></div>
-<div id="start" class="fixed inset-0 z-40 flex items-center justify-center text-center p-6" style="background:radial-gradient(ellipse at center,#0b1328 0%,#01040c 80%)">
-  <div class="glow-box bg-slate-900/70 border border-amber-500/20 rounded-3xl p-6">
-    <div class="text-5xl mb-3">🔐</div>
-    <h1 class="text-2xl font-black text-amber-400 mb-2">Lumen Vault</h1>
-    <p class="text-sm text-slate-300 mb-5 max-w-xs mx-auto">Click to begin. Press <b>Shift</b> any time to toggle Shift-Lock mouselook, just like Roblox.</p>
-    <button id="startBtn" class="bg-amber-500 text-slate-950 font-extrabold px-8 py-3 rounded-2xl">Enter the Vault</button>
+<div id="hoverLabel" class="fixed left-1/2 z-10 -translate-x-1/2 text-[11px] font-bold text-cyan-300 bg-slate-900/90 border border-cyan-500/30 px-3 py-1 rounded-full pointer-events-none opacity-0 transition-opacity tracking-wider shadow-lg" style="top:calc(50% + 24px)"></div>
+
+<!-- START SCREEN -->
+<div id="start" class="fixed inset-0 z-40 flex items-center justify-center text-center p-6" style="background:radial-gradient(ellipse at center,#0f172a 0%,#01040c 85%)">
+  <div class="glow-box bg-slate-900/85 border border-cyan-500/30 rounded-3xl p-8 max-w-md backdrop-blur-xl">
+    <div class="text-6xl mb-3 animate-bounce">🏛️</div>
+    <h1 class="text-3xl font-black text-cyan-400 mb-2">LUMEN VAULT</h1>
+    <p class="text-xs text-slate-300 mb-6 leading-relaxed">Immersive 3D Alchemical Escape Chamber. Explore fully decorated multi-room environments, solve complex mechanical locks, and uncover celestial secrets.</p>
+    <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 text-left text-[11px] text-slate-300 space-y-1.5 mb-6">
+      <div><b>🎮 Move:</b> WASD or Arrow Keys</div>
+      <div><b>👀 Look:</b> Drag mouse (Press <b>Shift</b> for Shift-Lock Cursor)</div>
+      <div><b>✨ Interact:</b> Click glowing interactive objects</div>
+    </div>
+    <button id="startBtn" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 font-black py-3.5 rounded-2xl shadow-lg hover:brightness-110 uppercase tracking-widest text-xs transition-all cursor-pointer">Enter the Vault</button>
   </div>
 </div>
 
-<div class="fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-3 sm:p-5" style="padding-top:max(.75rem,env(safe-area-inset-top));padding-bottom:max(.75rem,env(safe-area-inset-bottom))">
+<!-- HUD OVERLAY -->
+<div class="fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-3 sm:p-6" style="padding-top:max(.75rem,env(safe-area-inset-top));padding-bottom:max(.75rem,env(safe-area-inset-top))">
   <div class="flex flex-col sm:flex-row justify-between items-start gap-3">
-    <div class="bg-slate-900/90 border border-slate-700/70 p-3 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto max-w-xs hud-glow">
-      <div class="flex items-center gap-2 mb-1"><span id="rIcon" class="text-lg">🏛️</span><h1 id="rTitle" class="font-bold text-amber-400 text-sm">The Study</h1></div>
-      <p id="rObj" class="text-[11px] text-slate-300 leading-relaxed">Drag to look, WASD to move, click glowing objects to interact.</p>
+    <div class="bg-slate-900/90 border border-slate-700/80 p-3.5 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto max-w-xs hud-glow">
+      <div class="flex items-center gap-2 mb-1"><span id="rIcon" class="text-xl">🏛️</span><h1 id="rTitle" class="font-bold text-cyan-400 text-sm">The Study</h1></div>
+      <p id="rObj" class="text-[11px] text-slate-300 leading-relaxed">Examine the study room, check the grandfather clock, and inspect the books.</p>
     </div>
-    <div class="bg-slate-900/90 border border-slate-700/70 p-3 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto min-w-[190px] hud-glow">
-      <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex justify-between"><span>Inventory</span><span id="invCount" class="bg-slate-800 px-2 py-0.5 rounded-full">0</span></div>
-      <div id="invList" class="flex flex-wrap gap-1.5 min-h-[28px] items-center text-xs text-slate-500 italic">empty</div>
+    <div class="bg-slate-900/90 border border-slate-700/80 p-3.5 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto min-w-[210px] hud-glow">
+      <div class="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-1.5 flex justify-between"><span>Satchel Inventory</span><span id="invCount" class="bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full text-[9px]">0</span></div>
+      <div id="invList" class="flex flex-wrap gap-1.5 min-h-[30px] items-center text-xs text-slate-500 italic">empty</div>
     </div>
   </div>
-  <div id="notif" class="self-center bg-slate-900/95 border border-amber-500/40 text-amber-300 font-medium px-5 py-2.5 rounded-full shadow-2xl transition-all duration-300 translate-y-3 opacity-0 text-center text-xs max-w-md"></div>
+  <div id="notif" class="self-center bg-slate-900/95 border border-cyan-500/50 text-cyan-300 font-semibold px-6 py-3 rounded-2xl shadow-2xl transition-all duration-300 translate-y-4 opacity-0 text-center text-xs max-w-md backdrop-blur-md"></div>
   <div class="flex items-end justify-between">
-    <div id="dpad" class="pointer-events-auto grid grid-cols-3 gap-1 w-32 h-32 sm:hidden">
+    <div id="dpad" class="pointer-events-auto grid grid-cols-3 gap-1.5 w-36 h-36 sm:hidden">
       <div></div><button id="bU" class="dp rounded-t-xl">▲</button><div></div>
-      <button id="bL" class="dp rounded-l-xl">◄</button><div class="dp rounded-lg flex items-center justify-center text-[9px] opacity-60">MOVE</div><button id="bR" class="dp rounded-r-xl">►</button>
+      <button id="bL" class="dp rounded-l-xl">◄</button><div class="dp rounded-lg flex items-center justify-center text-[9px] opacity-70 font-mono">MOVE</div><button id="bR" class="dp rounded-r-xl">►</button>
       <div></div><button id="bD" class="dp rounded-b-xl">▼</button><div></div>
     </div>
-    <div class="hidden sm:flex bg-slate-900/90 border border-slate-700/70 px-4 py-2 rounded-full text-[11px] gap-3 pointer-events-auto">
-      <span>🎮 WASD move</span><span class="text-slate-600">|</span><span>👀 drag / <b id="slLabel">Shift-Lock off</b></span><span class="text-slate-600">|</span><span>✨ click to interact</span>
+    <div class="hidden sm:flex bg-slate-900/90 border border-slate-700/80 px-5 py-2.5 rounded-full text-[11px] gap-3 pointer-events-auto shadow-xl backdrop-blur-md">
+      <span class="text-cyan-300 font-medium">🎮 WASD move</span><span class="text-slate-700">|</span><span class="text-slate-300">👀 drag / <b id="slLabel" class="text-cyan-400">Shift-Lock off</b></span><span class="text-slate-700">|</span><span class="text-cyan-300 font-medium">✨ click objects</span>
     </div>
   </div>
 </div>
 
-<div id="modal" class="hidden fixed inset-0 z-20 flex items-center justify-center p-4" style="background:rgba(2,6,23,.88);backdrop-filter:blur(8px)">
-  <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-sm shadow-2xl text-center hud-glow">
-    <div id="mIcon" class="text-4xl mb-2"></div>
-    <h2 id="mTitle" class="text-lg font-bold text-amber-400 mb-2"></h2>
-    <p id="mDesc" class="text-sm text-slate-300 mb-4 leading-relaxed"></p>
-    <div id="mPad" class="hidden grid grid-cols-3 gap-2 mb-4"></div>
-    <div id="mDisp" class="hidden font-mono text-2xl tracking-[.4em] text-amber-400 bg-slate-950 py-2.5 rounded-xl mb-4 border border-slate-800"></div>
+<!-- MODAL POPUP -->
+<div id="modal" class="hidden fixed inset-0 z-20 flex items-center justify-center p-4" style="background:rgba(2,6,23,.88);backdrop-filter:blur(10px)">
+  <div class="bg-slate-900 border border-cyan-500/40 rounded-3xl p-7 w-full max-w-sm shadow-2xl text-center hud-glow relative overflow-hidden">
+    <div class="absolute -top-12 -right-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none"></div>
+    <div id="mIcon" class="text-5xl mb-3"></div>
+    <h2 id="mTitle" class="text-xl font-extrabold text-cyan-400 mb-2"></h2>
+    <p id="mDesc" class="text-xs text-slate-300 mb-5 leading-relaxed"></p>
+    <div id="mPad" class="hidden grid grid-cols-3 gap-2 mb-5"></div>
+    <div id="mDisp" class="hidden font-mono text-3xl tracking-[.4em] text-cyan-400 bg-slate-950 py-3 rounded-2xl mb-5 border border-slate-800 shadow-inner"></div>
     <div id="mActions" class="flex flex-col items-center gap-2"></div>
   </div>
 </div>
 
-<div id="victory" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4" style="background:rgba(2,6,23,.92)">
-  <div class="bg-slate-900 border border-emerald-500/50 rounded-3xl p-8 max-w-sm text-center shadow-2xl">
-    <div class="text-6xl mb-3">🏆</div>
-    <h2 class="text-2xl font-black text-amber-400 mb-2">You escaped!</h2>
-    <p class="text-sm text-slate-300 mb-6">You solved every lock in the Lumen Vault and walked free.</p>
-    <button onclick="location.reload()" class="w-full bg-amber-500 text-slate-950 font-extrabold py-3 rounded-2xl">Play again</button>
+<!-- VICTORY SCREEN -->
+<div id="victory" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4" style="background:rgba(2,6,23,.95);backdrop-filter:blur(12px)">
+  <div class="bg-slate-900 border border-emerald-500/60 rounded-3xl p-8 max-w-sm text-center shadow-2xl relative">
+    <div class="text-7xl mb-3 animate-bounce">🏆</div>
+    <h2 class="text-2xl font-black text-cyan-400 mb-2">CELESTIAL ESCAPE!</h2>
+    <p class="text-xs text-slate-300 mb-6 leading-relaxed">You successfully solved every alchemical lock, activated the observatory orrery, and walked free into the stars.</p>
+    <button onclick="location.reload()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 font-black py-3.5 rounded-2xl shadow-lg hover:brightness-110 uppercase tracking-wider text-xs cursor-pointer">Play Again</button>
   </div>
 </div>
 
 <script>
-/* ---------- audio ---------- */
+/* ---------- AUDIO ENGINE ---------- */
 let actx;
 function tone(f0,f1,dur,type,vol){
-  actx=actx||new (window.AudioContext||window.webkitAudioContext)();
-  if(actx.state==='suspended')actx.resume();
-  const t=actx.currentTime,o=actx.createOscillator(),g=actx.createGain();
-  o.type=type;o.frequency.setValueAtTime(f0,t);
-  if(f1)o.frequency.exponentialRampToValueAtTime(f1,t+dur);
-  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
-  o.connect(g);g.connect(actx.destination);o.start();o.stop(t+dur);
+  try {
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended')actx.resume();
+    const t=actx.currentTime,o=actx.createOscillator(),g=actx.createGain();
+    o.type=type;o.frequency.setValueAtTime(f0,t);
+    if(f1)o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+    g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+    o.connect(g);g.connect(actx.destination);o.start();o.stop(t+dur);
+  } catch(e){}
 }
-const SFX={click:()=>tone(800,400,.05,'sine',.1),step:()=>tone(70+Math.random()*20,30,.08,'triangle',.06),
-  pull:()=>tone(200,350,.25,'triangle',.12),pick:()=>tone(523,880,.12,'triangle',.14),
-  door:()=>tone(120,90,.8,'sawtooth',.08),
-  ok:()=>{tone(523,0,.12,'sine',.18);setTimeout(()=>tone(659,0,.12,'sine',.18),90);setTimeout(()=>tone(784,0,.3,'sine',.18),180)},
-  bad:()=>tone(160,110,.22,'sawtooth',.13)};
+const SFX={
+  click:()=>tone(850,420,.05,'sine',.08),
+  step:()=>tone(65+Math.random()*25,25,.07,'triangle',.05),
+  pull:()=>tone(180,320,.28,'triangle',.12),
+  pick:()=>tone(523,880,.14,'triangle',.15),
+  door:()=>tone(110,85,.9,'sawtooth',.08),
+  ok:()=>{tone(523,0,.12,'sine',.15);setTimeout(()=>tone(659,0,.12,'sine',.15),90);setTimeout(()=>tone(784,0,.3,'sine',.15),180)},
+  bad:()=>tone(150,100,.25,'sawtooth',.12)
+};
 let droneStarted=false;
 function startDrone(){
   if(droneStarted)return;droneStarted=true;
-  actx=actx||new (window.AudioContext||window.webkitAudioContext)();
-  const o=actx.createOscillator(),o2=actx.createOscillator(),g=actx.createGain();
-  o.type='sine';o.frequency.value=48;o2.type='sine';o2.frequency.value=72.5;
-  g.gain.value=.018;o.connect(g);o2.connect(g);g.connect(actx.destination);o.start();o2.start();
+  try {
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(),o2=actx.createOscillator(),g=actx.createGain();
+    o.type='sine';o.frequency.value=48;o2.type='sine';o2.frequency.value=72.5;
+    g.gain.value=.015;o.connect(g);o2.connect(g);g.connect(actx.destination);o.start();o2.start();
+  } catch(e){}
 }
 
-/* ---------- state ---------- */
+/* ---------- GAME STATE ---------- */
 const S={room:1,inv:[],red:false,orb:false,door:false,vault:false,bookPlaced:false,gate:false};
-const ROOMS=[{i:'🏛️',t:'The Study',o:'Click the book, box and orb to work the puzzle.'},{i:'🔐',t:'The Vault',o:'Disarm the core, then open the observatory gate.'},{i:'🔭',t:'The Observatory',o:'Reach the hatch and escape the Lumen Vault.'}];
-function add(item){if(S.inv.includes(item))return;S.inv.push(item);SFX.pick();drawInv();notify('Picked up: '+item)}
+const ROOMS=[
+  {i:'🏛️',t:'The Study',o:'Examine the study room, check the grandfather clock, and inspect the books.'},
+  {i:'🔐',t:'The Vault Annex',o:'Insert the power cell into the core to retrieve the master pass.'},
+  {i:'🔭',t:'The Observatory',o:'Activate the celestial gates and escape into freedom.'}
+];
+function add(item){if(S.inv.includes(item))return;S.inv.push(item);SFX.pick();drawInv();notify('Acquired: '+item)}
 function has(i){return S.inv.includes(i)}
-function drawInv(){document.getElementById('invCount').textContent=S.inv.length;
-  document.getElementById('invList').innerHTML=S.inv.length?S.inv.map(i=>'<span class="bg-indigo-600/90 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">✨ '+i+'</span>').join(''):'<span class="text-xs text-slate-500 italic">empty</span>'}
-let nt;function notify(m){const b=document.getElementById('notif');b.textContent=m;b.classList.remove('opacity-0','translate-y-3');clearTimeout(nt);nt=setTimeout(()=>b.classList.add('opacity-0','translate-y-3'),3000)}
+function drawInv(){
+  document.getElementById('invCount').textContent=S.inv.length;
+  document.getElementById('invList').innerHTML=S.inv.length?S.inv.map(i=>'<span class="bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[11px] font-bold px-2.5 py-1 rounded-xl flex items-center gap-1 shadow-sm">✨ '+i+'</span>').join(''):'<span class="text-xs text-slate-500 italic">empty</span>';
+}
+let nt;function notify(m){const b=document.getElementById('notif');b.textContent=m;b.classList.remove('opacity-0','translate-y-4');clearTimeout(nt);nt=setTimeout(()=>b.classList.add('opacity-0','translate-y-4'),3500)}
 
-/* ---------- modal ---------- */
+/* ---------- MODAL SYSTEM ---------- */
 let modalOpen=false;
 function closeModal(){modalOpen=false;document.getElementById('modal').classList.add('hidden')}
 function simpleModal(icon,title,desc){
@@ -141,7 +166,9 @@ function simpleModal(icon,title,desc){
   document.getElementById('mIcon').textContent=icon;document.getElementById('mTitle').textContent=title;document.getElementById('mDesc').textContent=desc;
   document.getElementById('mPad').classList.add('hidden');document.getElementById('mDisp').classList.add('hidden');
   const a=document.getElementById('mActions');a.innerHTML='';
-  const close=document.createElement('button');close.className='bg-slate-800 px-6 py-2 rounded-xl text-sm font-semibold';close.textContent='Close';close.onclick=closeModal;a.appendChild(close);
+  const btn=document.createElement('button');
+  btn.className='w-full bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold py-2.5 rounded-xl text-xs tracking-wider uppercase transition-all cursor-pointer';
+  btn.textContent='Close Examination';btn.onclick=closeModal;a.appendChild(btn);
   document.getElementById('modal').classList.remove('hidden');
 }
 function keypadModal(title,hint,len,code,onOk,icon){
@@ -152,28 +179,31 @@ function keypadModal(title,hint,len,code,onOk,icon){
   document.getElementById('mActions').innerHTML='';
   const render=()=>disp.textContent=cur.padEnd(len,'_');
   '123456789C0K'.split('').forEach(k=>{
-    const b=document.createElement('button');b.className='keybtn';b.textContent=k==='C'?'CLR':k==='K'?'OK':k;
+    const b=document.createElement('button');b.className='keybtn text-sm font-black cursor-pointer';b.textContent=k==='C'?'CLR':k==='K'?'OK':k;
     b.onclick=()=>{SFX.click();
       if(k==='C')cur='';
-      else if(k==='K'){ if(cur===code){SFX.ok();closeModal();onOk()} else{SFX.bad();notify('Incorrect code');cur=''} }
+      else if(k==='K'){if(cur===code){SFX.ok();closeModal();onOk()}else{SFX.bad();notify('Access Denied: Invalid Security Code');cur=''}}
       else if(cur.length<len)cur+=k;
       render();
     };
     pad.appendChild(b);
   });
-  const close=document.createElement('button');close.className='bg-slate-800 px-6 py-2 rounded-xl text-sm font-semibold';close.textContent='Cancel';close.onclick=closeModal;
-  document.getElementById('mActions').appendChild(close);
+  const act=document.getElementById('mActions');
+  const cancelBtn=document.createElement('button');
+  cancelBtn.className='w-full bg-slate-800/80 hover:bg-slate-800 text-slate-400 font-bold py-2 rounded-xl text-xs tracking-wider uppercase transition-all mt-2 cursor-pointer';
+  cancelBtn.textContent='Cancel';cancelBtn.onclick=closeModal;act.appendChild(cancelBtn);
   document.getElementById('modal').classList.remove('hidden');
 }
 
-/* ---------- three.js ---------- */
+/* ---------- THREE.JS ENGINE ---------- */
 let scene,camera,renderer,ray,objs=[],colliders=[],hovered=null,clock;
-let orb,orbMat,glassMat,redLid,doorLeaf,keyMesh;
-const player={pos:new THREE.Vector3(0,1.6,2.6),yaw:0,pitch:0,r:.35,speed:4,step:0,walk:0,bobY:0};
+let orb,orbMat,glassMat,redLid,doorLeaf,keyMesh,pendulumMesh;
+const player={pos:new THREE.Vector3(0,1.6,2.6),yaw:0,pitch:0,r:.35,speed:4.2,step:0,walk:0,bobY:0};
 const keys={};let down=false,prev={x:0,y:0},shiftLocked=false,shiftHeld=false;
+
 function setShiftLock(on){
   shiftLocked=on;const lbl=document.getElementById('slLabel');if(lbl)lbl.textContent=on?'Shift-Lock ON':'Shift-Lock off';
-  if(on){if(renderer&&renderer.domElement.requestPointerLock)renderer.domElement.requestPointerLock();notify('Shift-Lock engaged — move freely, press Shift to release')}
+  if(on){if(renderer&&renderer.domElement.requestPointerLock)renderer.domElement.requestPointerLock();notify('Shift-Lock active — move freely, press Shift to release')}
   else if(document.exitPointerLock)document.exitPointerLock();
 }
 document.addEventListener('pointerlockchange',function(){if(!document.pointerLockElement&&shiftLocked)setShiftLock(false)});
@@ -181,162 +211,189 @@ document.addEventListener('pointerlockchange',function(){if(!document.pointerLoc
 function texture(draw,size){size=size||256;const cv=document.createElement('canvas');cv.width=cv.height=size;draw(cv.getContext('2d'),size);
   const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
 function woodTex(base,grain){return texture((x,s)=>{x.fillStyle=base;x.fillRect(0,0,s,s);
-  for(let i=0;i<40;i++){x.strokeStyle=grain;x.globalAlpha=.08+Math.random()*.1;x.beginPath();
-  const y=Math.random()*s;x.moveTo(0,y);x.bezierCurveTo(s*.3,y+Math.random()*10-5,s*.7,y+Math.random()*10-5,s,y);x.stroke()}})}
+  for(let i=0;i<45;i++){x.strokeStyle=grain;x.globalAlpha=.07+Math.random()*.1;x.lineWidth=1+Math.random()*2;x.beginPath();
+  const y=Math.random()*s;x.moveTo(0,y);x.bezierCurveTo(s*.3,y+Math.random()*12-6,s*.7,y+Math.random()*12-6,s,y);x.stroke()}})}
 function stoneTex(base,line,glow){return texture((x,s)=>{x.fillStyle=base;x.fillRect(0,0,s,s);
-  for(let i=0;i<8;i++)for(let j=0;j<8;j++){x.strokeStyle=glow||line;x.globalAlpha=glow?.55:.25;x.lineWidth=glow?1.5:1;x.strokeRect(i*s/8,j*s/8,s/8,s/8);
-  x.fillStyle='rgba(0,0,0,'+(Math.random()*.08)+')';x.fillRect(i*s/8,j*s/8,s/8,s/8)}})}
+  const step=s/8;
+  for(let i=0;i<8;i++)for(let j=0;j<8;j++){x.strokeStyle=glow||line;x.globalAlpha=glow?.4:.25;x.lineWidth=glow?1.5:1;x.strokeRect(i*step,j*step,step,step);
+  x.fillStyle='rgba(0,0,0,'+(Math.random()*.1)+')';x.fillRect(i*step+2,j*step+2,step-4,step-4)}})}
+function rugTex(){return texture((x,s)=>{x.fillStyle='#1e1b4b';x.fillRect(0,0,s,s);x.fillStyle='#312e81';
+  for(let i=0;i<s;i+=16)for(let j=0;j<s;j+=16)if((i+j)%32===0)x.fillRect(i,j,16,16)})}
 
-function reg(mesh,name,fn,dist){mesh.userData={name:name,fn:fn,dist:dist||3.2,em:mesh.material.emissive.getHex()};objs.push(mesh)}
+function reg(mesh,name,fn,dist){mesh.userData={name:name,fn:fn,dist:dist||3.5,em:mesh.material.emissive?mesh.material.emissive.getHex():0};objs.push(mesh)}
 function wall(w,h,x,y,z,ry,mat){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);m.position.set(x,y,z);if(ry)m.rotation.y=ry;scene.add(m);return m}
 function box(w,h,d,x,y,z,color,opts){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial(Object.assign({color:color},opts||{})));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m}
 function collide(x0,x1,z0,z1){colliders.push({x0:x0,x1:x1,z0:z0,z1:z1})}
-function dust(ox){const n=180,g=new THREE.BufferGeometry(),pos=new Float32Array(n*3);
-  for(let i=0;i<n;i++){pos[i*3]=ox+(Math.random()-.5)*7;pos[i*3+1]=Math.random()*3.6;pos[i*3+2]=(Math.random()-.5)*7}
+function dust(ox){const n=200,g=new THREE.BufferGeometry(),pos=new Float32Array(n*3);
+  for(let i=0;i<n;i++){pos[i*3]=ox+(Math.random()-.5)*7.5;pos[i*3+1]=Math.random()*3.8;pos[i*3+2]=(Math.random()-.5)*7.5}
   g.setAttribute('position',new THREE.BufferAttribute(pos,3));
-  scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xffe9c7,size:.012,transparent:true,opacity:.5})))}
+  scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0x38bdf8,size:0.014,transparent:true,opacity:0.55,blending:THREE.AdditiveBlending})))}
 
 function buildRoom(ox,warm,tint){
-  const floorTex=warm?woodTex('#2a1a10','#1a0e08'):stoneTex('#1a2234','#0c1220','#0ea5b7');floorTex.repeat.set(4,4);
-  const wallTex=warm?stoneTex('#263447','#16202f'):stoneTex('#131b2e','#0a0f1c','#22d3ee');wallTex.repeat.set(3,2);
-  const floor=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.MeshStandardMaterial({map:floorTex,roughness:.8}));
+  const floorTex=warm?woodTex('#2b1708','#140a03'):stoneTex('#111827','#030712','#38bdf8');floorTex.repeat.set(4,4);
+  const wallTex=warm?stoneTex('#1e293b','#0f172a'):stoneTex('#090d16','#020617','#38bdf8');wallTex.repeat.set(3,2);
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.MeshStandardMaterial({map:floorTex,roughness:.7}));
   floor.rotation.x=-Math.PI/2;floor.position.x=ox;floor.receiveShadow=true;scene.add(floor);
-  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.MeshStandardMaterial({color:0x05070d}));
+  if(warm){
+    const carpet=new THREE.Mesh(new THREE.PlaneGeometry(2.2,6.5),new THREE.MeshStandardMaterial({map:rugTex(),roughness:.9}));
+    carpet.rotation.x=-Math.PI/2;carpet.position.set(ox,.002,-.2);carpet.receiveShadow=true;scene.add(carpet);
+  }
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.MeshStandardMaterial({color:0x02040a,roughness:.9}));
   ceil.rotation.x=Math.PI/2;ceil.position.set(ox,4,0);scene.add(ceil);
   const wm=new THREE.MeshStandardMaterial({map:wallTex,roughness:.85,side:THREE.DoubleSide});
   wall(8,4,ox,2,-4,0,wm);wall(8,4,ox,2,4,Math.PI,wm);
   collide(ox-4,ox+4,-4.1,-3.9);collide(ox-4,ox+4,3.9,4.1);
-  const lamp=new THREE.PointLight(tint||(warm?0xffb86b:0x7dd3fc),1.4,7,2);lamp.position.set(ox,3.6,0);scene.add(lamp);
+  const lampHolder=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,.1,16),new THREE.MeshStandardMaterial({color:0x334155,metalness:.8}));
+  lampHolder.position.set(ox,3.95,0);scene.add(lampHolder);
+  const lamp=new THREE.PointLight(tint||(warm?0xffb703:0x38bdf8),1.6,7.5,2.2);lamp.position.set(ox,3.75,0);lamp.castShadow=true;scene.add(lamp);
   dust(ox);return lamp;
 }
 
 function openDoor(){
-  keypadModal('Vault Door','Enter the 4-digit passcode',4,'7429',function(){
-    S.door=true;SFX.door();doorLeaf.rotation.y=-1.7;
-    simpleModal('🚪','Unlocked!','The heavy door swings open. Head west into the vault chamber.');
+  keypadModal('Vault Passage Door','Enter the 4-digit Master Passcode',4,'7429',function(){
+    S.door=true;SFX.door();doorLeaf.rotation.y=-1.75;
+    simpleModal('🚪','Passage Open!','The heavy hydraulic bolts retract. Walk through into the inner vault.');
   },'🚪');
 }
 
 function init(){
-  scene=new THREE.Scene();scene.background=new THREE.Color(0x01040c);scene.fog=new THREE.FogExp2(0x01040c,.045);
-  camera=new THREE.PerspectiveCamera(66,innerWidth/innerHeight,.1,100);
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x01040c);scene.fog=new THREE.FogExp2(0x01040c,.042);
+  camera=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.1,100);
   renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true});
   renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
-  scene.add(new THREE.AmbientLight(0xc7d2fe,.35));
+  scene.add(new THREE.AmbientLight(0x94a3b8,.4));
   scene.add(camera);
-  const torch=new THREE.SpotLight(0xd6f3ff,1.15,9,Math.PI/5,.5);
-  torch.castShadow=true;torch.shadow.mapSize.set(1024,1024);torch.shadow.camera.near=.1;torch.shadow.camera.far=10;
+
+  const torch=new THREE.SpotLight(0xfffbeb,1.2,10,Math.PI/4,.4);
+  torch.castShadow=true;torch.shadow.mapSize.set(1024,1024);
   const torchTarget=new THREE.Object3D();torchTarget.position.set(0,0,-1);
   camera.add(torch);camera.add(torchTarget);torch.target=torchTarget;
-  const l1=buildRoom(0,true), l2=buildRoom(-11,false), l3=buildRoom(-22,false,0x9f7aea);
 
-  const wm=new THREE.MeshStandardMaterial({color:0x1b2436,roughness:.8,side:THREE.DoubleSide});
+  const l1=buildRoom(0,true), l2=buildRoom(-11,false), l3=buildRoom(-22,false,0xa855f7);
+
+  const wm=new THREE.MeshStandardMaterial({map:stoneTex('#1e293b','#0f172a','#38bdf8'),roughness:.8,side:THREE.DoubleSide});
   wall(8,4,4,2,0,-Math.PI/2,wm);collide(3.9,4.1,-4,4);
   wall(8,4,-15,2,0,Math.PI/2,wm);
   wall(3,4,-4,2,-2.5,Math.PI/2,wm);collide(-4.1,-3.9,-4,-1);
   wall(3,4,-4,2,2.5,Math.PI/2,wm);collide(-4.1,-3.9,1,4);
   wall(2,1.3,-4,3.35,0,Math.PI/2,wm);
-  doorLeaf=box(.08,2.5,1.25,-4,1.25,0,0x4b5a73,{roughness:.4});
-  reg(doorLeaf,'Vault Door',function(){if(!S.door)openDoor();else notify('Door is open — walk through.')});
 
-  // study table + legs
-  const table=box(2.1,.1,1.1,0,.9,-1,0x4b2f14,{roughness:.6});collide(-1.1,1.1,-1.6,-.4);
-  reg(table,'Study Table',function(){notify('A sturdy table holding a few things.')});
-  [[-.95,.45,-1.45],[.95,.45,-1.45],[-.95,.45,-.55],[.95,.45,-.55]].forEach(function(p){box(.06,.9,.06,p[0],p[1],p[2],0x2d1b0c)});
+  doorLeaf=box(.08,2.5,1.25,-4,1.25,0,0x334155,{metalness:.7,roughness:.3});
+  reg(doorLeaf,'Vault Security Door',function(){if(!S.door)openDoor();else notify('Door is open — pass through.')});
 
-  // grandfather clock
-  const clock1=box(.6,2.3,.4,-3.3,1.15,-3.4,0x2b1708,{roughness:.5});
-  box(.36,.36,.06,-3.3,1.9,-3.21,0xf5f0e6,{roughness:.3});
-  reg(clock1,'Grandfather Clock',function(){notify('The hands are frozen at 7:42 — the same number etched in the journal.')});
+  // --- STUDY DECORATIONS ---
+  const table=box(2.2,.12,1.1,0,.88,-1,0x3d2314,{roughness:.5});
+  reg(table,'Mahogany Study Table',function(){notify('A heavy antique desk polished to perfection.')});
+  addCollider(-1.2,1.2,-1.6,-.4);
+  [[-1.0,.42,-1.45],[1.0,.42,-1.45],[-1.0,.42,-.55],[1.0,.42,-.55]].forEach(p=>box(.07,.84,.07,p[0],p[1],p[2],0x1f1007));
 
-  // secret book
-  const sBook=box(.32,.06,.42,.45,.98,-.85,0x15803d,{roughness:.5});sBook.rotation.y=-.3;
-  reg(sBook,'Green Notebook',function(){add('Secret Note');simpleModal('📖','Green Notebook',"Scrawled inside: 'Lockbox code 3-1-4. The journal on the shelf hides the door's passcode.'")});
+  // Grandfather Clock with Pendulum
+  const clockBody=box(.8,2.4,.5,-3.2,1.2,-3.2,0x2b1708,{roughness:.4});
+  box(.36,.36,.06,-3.2,1.9,-2.94,0xf5f0e6,{roughness:.3});
+  pendulumMesh=box(.08,.8,.04,-3.2,1.2,-2.96,0xf59e0b,{metalness:.9});
+  reg(clockBody,'Grandfather Clock',function(){
+    simpleModal('🕰️','Grandfather Clock',"The brass pendulum swings rhythmically. The ornate clock hands are permanently fixed pointing precisely at 7:42. (Hint: Note 7 and 42).");
+  });
+  addCollider(-3.6,-2.8,-3.5,-2.9);
 
-  // red lockbox
-  redLid=box(.46,.04,.36,-.6,1.1,-1,0xb91c1c,{roughness:.4});
-  const redBody=box(.45,.2,.35,-.6,1,-1,0xb91c1c,{roughness:.4});
+  // Secret Book
+  const sBook=box(.32,.07,.42,.45,.96,-.85,0x15803d,{roughness:.3});sBook.rotation.y=-.25;
+  reg(sBook,'Green Notebook',function(){
+    addToInventory('Secret Note');
+    simpleModal('📖','Green Notebook',"Handwritten entry: 'Lockbox combination is 3-1-4. The Philosopher's Journal hidden in the mahogany bookshelf holds the master door passcode.'");
+  });
+
+  // Red Lockbox
+  redLid=box(.48,.05,.36,-.6,1.08,-1,0xb91c1c,{metalness:.4,roughness:.3});
+  const redBody=box(.46,.22,.34,-.6,.97,-1,0x991b1b,{metalness:.4,roughness:.3});
   reg(redBody,'Red Lockbox',function(){
-    if(S.red){simpleModal('📦','Red Box','Already open — the golden key is gone.');return}
-    keypadModal('Red Box Lock','Enter the 3-digit code',3,'314',function(){
-      S.red=true;redLid.rotation.x=-2;add('Golden Key');
-      simpleModal('🔑','Unlocked!','The lid springs open, revealing a golden key.');
+    if(S.red){simpleModal('📦','Red Box','The lockbox is already open and empty.');return}
+    keypadModal('Red Lockbox','Enter the 3-Digit Combination',3,'314',function(){
+      S.red=true;redLid.rotation.x=-2.1;addToInventory('Golden Key');
+      simpleModal('🔑','Lockbox Unlocked!','The heavy latch springs open! You retrieve the Golden Key.');
     },'📦');
   });
 
-  // blue orb
-  box(.5,.8,.5,2.4,.4,-2,0x334155,{roughness:.7});collide(2.1,2.9,-2.4,-1.6);
-  orbMat=new THREE.MeshStandardMaterial({color:0x2563eb,emissive:0x1d4ed8,emissiveIntensity:.6,roughness:.2});
-  orb=new THREE.Mesh(new THREE.SphereGeometry(.26,32,32),orbMat);orb.position.set(2.4,1.05,-2);scene.add(orb);
-  reg(orb,'Glowing Orb',function(){
-    if(S.orb){notify('The orb is already spent.');return}
-    if(!has('Golden Key')){SFX.bad();simpleModal('🔮','Locked Orb','It needs a key to unlock its charge.');return}
-    S.orb=true;orbMat.emissive.setHex(0x10b981);orb.userData.em=0x10b981;add('Power Cell');
-    simpleModal('🔮','Orb Unlocked','The golden key fits! The orb turns green and yields a power cell.');
+  // Glowing Blue Sphere
+  box(.5,.8,.5,2.4,.4,-2,0x1e293b,{roughness:.6});
+  addCollider(2.1,2.7,-2.3,-1.7);
+  orbMat=new THREE.MeshStandardMaterial({color:0x2563eb,emissive:0x1d4ed8,emissiveIntensity:.7,roughness:.1,metalness:.2});
+  orb=new THREE.Mesh(new THREE.SphereGeometry(.28,32,32),orbMat);orb.position.set(2.4,1.05,-2);scene.add(orb);
+  reg(orb,'Glowing Blue Sphere',function(){
+    if(S.orb){notify('The blue sphere is already depleted.');return}
+    if(!has('Golden Key')){SFX.bad();simpleModal('🔮','Sealed Orb','A shimmering energy lock protects the sphere. Requires a key.');return}
+    S.orb=true;orbMat.emissive.setHex(0x10b981);orb.userData.em=0x10b981;addToInventory('Energy Power Cell');
+    simpleModal('🔮','Sphere Discharged','You turn the Golden Key. The sphere pulses green and releases an Energy Power Cell!');
   });
 
-  // bookshelf + hidden journal
-  const sx=2.9,sz=3.6;
-  box(.1,3,.5,sx-1,1.5,sz,0x2e1809);box(.1,3,.5,sx+1,1.5,sz,0x2e1809);
-  collide(sx-1.1,sx+1.1,sz-.3,sz+.3);
-  const colors=[0x991b1b,0x1e3a8a,0x065f46,0x7c2d12,0x4c1d95];
-  [.2,1,1.8,2.6].forEach(function(y){
-    box(2,.07,.46,sx,y,sz,0x2e1809);
-    let x=sx-.9;
-    while(x<sx+.85){
-      const w=.08+Math.random()*.07,h=.3+Math.random()*.15;
-      const special=(y===1.8&&x>sx-.1&&x<sx+.15&&!S.bookPlaced);
-      const bm=box(w,h,.3,x+w/2,y+h/2+.04,sz,special?0x78350f:colors[Math.floor(Math.random()*colors.length)],{roughness:.6});
-      if(special){S.bookPlaced=true;
-        reg(bm,"Philosopher's Journal",function(){SFX.pull();bm.position.z+=.12;
-          simpleModal('📜',"Philosopher's Journal","A mechanism clicks as you pull it. Etched inside: the door passcode — 7 4 2 9.")});
-      } else reg(bm,'Old Book',function(){notify('Just a dusty, unremarkable book.')});
-      x+=w+.02;
+  // Bookshelf + Hidden Journal
+  const sx=2.9,sz=3.5;
+  box(.1,3.2,.6,sx-1.1,1.6,sz,0x271507);box(.1,3.2,.6,sx+1.1,1.6,sz,0x271507);
+  collide(sx-1.2,sx+1.2,sz-.35,sz+.35);
+  const bookColors=[0x991b1b,0x1e3a8a,0x065f46,0x7c2d12,0x4c1d95,0xb45309];
+  [0.3,1.05,1.8,2.55].forEach(shelfY=>{
+    box(2.2,.08,.48,sx,shelfY,sz,0x271507);
+    let curX=sx-.95;
+    while(curX<sx+.85){
+      const bw=.08+Math.random()*.07,bh=.32+Math.random()*.16;
+      const isPhilosopherJournal=(shelfY===1.8&&curX>sx-.05&&curX<sx+.15&&!S.bookPlaced);
+      const bColor=isPhilosopherJournal?0x78350f:bookColors[Math.floor(Math.random()*bookColors.length)];
+      const bm=box(bw,bh,.32,curX+bw/2,shelfY+bh/2+.04,sz,bColor,{roughness:.5});
+      if(isPhilosopherJournal){
+        S.bookPlaced=true;
+        reg(bm,"Philosopher's Journal",function(){SFX.pull();bm.position.z+=.15;
+          simpleModal('📜',"Philosopher's Journal","You pull the tome. A hidden compartment reveals the etched master passcode: <b>7 - 4 - 2 - 9</b>.")});
+      }else reg(bm,'Ancient Tome',function(){notify('A dusty volume filled with cryptic notes.')});
+      curX+=bw+.03;
     }
   });
 
-  // vault core
-  box(1.2,.9,1.2,-11,.45,0,0x334155,{metalness:.5,roughness:.4});collide(-11.8,-10.2,-.7,.7);
-  glassMat=new THREE.MeshStandardMaterial({color:0x38bdf8,transparent:true,opacity:.35});
-  const vg=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,1,20),glassMat);vg.position.set(-11,1.4,0);scene.add(vg);
-  keyMesh=new THREE.Mesh(new THREE.TorusGeometry(.15,.04,12,28),new THREE.MeshStandardMaterial({color:0xf59e0b,metalness:.9,roughness:.2}));
-  keyMesh.position.set(-11,1.4,0);scene.add(keyMesh);
-  reg(vg,'Vault Core',function(){
-    if(S.vault){notify('The forcefield is already down.');return}
-    if(!has('Power Cell')){SFX.bad();simpleModal('🔒','Containment Vault','Needs a power cell to disarm.');return}
-    S.vault=true;glassMat.opacity=.08;add('Vault Pass');
-    simpleModal('⚡','Vault Disarmed','The power cell slots in — the field retracts, and the master pass is yours.');
+  // --- ROOM 2: VAULT CORE ---
+  box(1.3,1.0,1.3,-11,.5,0,0x1e293b,{metalness:.6,roughness:.3});
+  addCollider(-11.8,-10.2,-.8,.8);
+  glassMat=new THREE.MeshStandardMaterial({color:0x38bdf8,transparent:true,opacity:.32,roughness:.1});
+  const vg=new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,1.1,24),glassMat);vg.position.set(-11,1.5,0);scene.add(vg);
+  keyMesh=new THREE.Mesh(new THREE.TorusGeometry(.18,.05,16,32),new THREE.MeshStandardMaterial({color:0xf59e0b,metalness:.9,roughness:.2}));
+  keyMesh.position.set(-11,1.5,0);keyMesh.rotation.x=Math.PI/2;scene.add(keyMesh);
+  reg(vg,'Vault Containment Core',function(){
+    if(S.vault){notify('The containment field is already deactivated.');return}
+    if(!has('Energy Power Cell')){SFX.bad();simpleModal('🔒','Containment Field Active','Insert the Energy Power Cell from Room 1 to bypass security.');return}
+    S.vault=true;glassMat.opacity=.08;addToInventory('Master Vault Pass');
+    simpleModal('⚡','Vault Override Successful!','You plug in the Energy Power Cell. The forcefield collapses and ejects the Master Vault Pass.');
   });
 
-  // observatory gate (the old hatch) - needs the Vault Pass to swing open
-  const gateDoor=box(.1,2.6,1.5,-14.95,1.3,0,0x334155,{metalness:.5,roughness:.3});
+  // Observatory Gate
+  const gateDoor=box(.1,2.7,1.6,-14.95,1.35,0,0x334155,{metalness:.5,roughness:.3});
   reg(gateDoor,'Observatory Gate',function(){
-    if(S.gate){notify('The gate is open — the observatory lies west.');return}
-    if(!has('Vault Pass')){SFX.bad();simpleModal('🚨','Sealed Gate','This gate reads for a master vault pass.');return}
-    S.gate=true;SFX.door();gateDoor.rotation.y=-1.6;
-    simpleModal('🌌','Gate Opens','The master pass unseals it. A cold, starlit draft rolls in from the observatory.');
+    if(S.gate){notify('The gate is open.');return}
+    if(!has('Master Vault Pass')){SFX.bad();simpleModal('🚨','Sealed Gate','This heavy gate requires the Master Vault Pass.');return}
+    S.gate=true;SFX.door();gateDoor.rotation.y=-1.75;
+    simpleModal('🌌','Gate Opens','The master pass unseals the barrier. A cold, starlit breeze flows from the observatory.');
   });
 
-  // observatory outer wall + the true escape hatch
+  // --- ROOM 3: OBSERVATORY & ORRERY ---
   wall(8,4,-26,2,0,Math.PI/2,wm);collide(-26.2,-25.8,-4,4);
-  const hatch=box(.1,2.7,1.5,-25.9,1.35,0,0x10b981,{metalness:.5});
+  const hatch=box(.1,2.7,1.6,-25.9,1.35,0,0x10b981,{metalness:.5});
   reg(hatch,'Escape Hatch',function(){
     SFX.ok();modalOpen=true;document.getElementById('victory').classList.remove('hidden');
   });
 
-  // orrery centerpiece
-  collide(-22.5,-21.5,-.5,.5);
-  const orreryCore=new THREE.Mesh(new THREE.IcosahedronGeometry(.22,1),new THREE.MeshStandardMaterial({color:0x9f7aea,emissive:0x6d28d9,emissiveIntensity:.8,roughness:.2}));
+  // Grand Orrery
+  collide(-22.5,-21.5,-.6,.6);
+  const orreryCore=new THREE.Mesh(new THREE.IcosahedronGeometry(.26,1),new THREE.MeshStandardMaterial({color:0xa855f7,emissive:0x7c3aed,emissiveIntensity:.9,roughness:.2}));
   orreryCore.position.set(-22,1.6,0);scene.add(orreryCore);
-  const ring1=new THREE.Mesh(new THREE.TorusGeometry(.6,.02,8,48),new THREE.MeshStandardMaterial({color:0x9f7aea,emissive:0x9f7aea,emissiveIntensity:.5}));
+  const ring1=new THREE.Mesh(new THREE.TorusGeometry(.7,.02,8,48),new THREE.MeshStandardMaterial({color:0xa855f7,emissive:0xa855f7,emissiveIntensity:.6}));
   ring1.position.set(-22,1.6,0);ring1.rotation.x=.4;scene.add(ring1);
-  const ring2=new THREE.Mesh(new THREE.TorusGeometry(.8,.015,8,48),new THREE.MeshStandardMaterial({color:0x7dd3fc,emissive:0x7dd3fc,emissiveIntensity:.5}));
+  const ring2=new THREE.Mesh(new THREE.TorusGeometry(.95,.018,8,48),new THREE.MeshStandardMaterial({color:0x38bdf8,emissive:0x38bdf8,emissiveIntensity:.6}));
   ring2.position.set(-22,1.6,0);ring2.rotation.z=.6;scene.add(ring2);
-  reg(orreryCore,'Floating Orrery',function(){notify('A slow, silent model of a sky no one here has seen.')});
+  reg(orreryCore,'Celestial Orrery',function(){notify('A majestic brass timepiece charting unknown star systems.')});
 
   ray=new THREE.Raycaster();clock=new THREE.Clock();
-  bindInput();animate.l1=l1;animate.l2=l2;animate.l3=l3;animate.torch=torch;animate.orrery=orreryCore;animate.ring1=ring1;animate.ring2=ring2;animate();
+  bindInput();
+  animate.l1=l1;animate.l2=l2;animate.l3=l3;animate.torch=torch;
+  animate.orrery=orreryCore;animate.ring1=ring1;animate.ring2=ring2;
+  animate();
 }
 
 function bindInput(){
@@ -345,9 +402,9 @@ function bindInput(){
   addEventListener('pointerdown',function(e){if(modalOpen||e.target.closest('#modal,#victory,#start'))return;down=true;prev={x:e.clientX,y:e.clientY};interact()});
   addEventListener('pointermove',function(e){
     if(modalOpen)return;
-    if(shiftLocked){player.yaw-=e.movementX*.0025;player.pitch=Math.max(-1.3,Math.min(1.3,player.pitch-e.movementY*.0025));return}
+    if(shiftLocked){player.yaw-=e.movementX*.0022;player.pitch=Math.max(-1.35,Math.min(1.35,player.pitch-e.movementY*.0022));return}
     if(!down)return;
-    player.yaw-=(e.clientX-prev.x)*.003;player.pitch=Math.max(-1.3,Math.min(1.3,player.pitch-(e.clientY-prev.y)*.003));
+    player.yaw-=(e.clientX-prev.x)*.0025;player.pitch=Math.max(-1.35,Math.min(1.35,player.pitch-(e.clientY-prev.y)*.0025));
     prev={x:e.clientX,y:e.clientY}});
   addEventListener('pointerup',function(){down=false});
   function db(id,k){const b=document.getElementById(id);if(!b)return;
@@ -359,11 +416,12 @@ function bindInput(){
 }
 
 function blocked(x,z){
-  if(!S.door&&x<-3.8&&z>-1.8&&z<.2)return true;
+  if(!S.door&&x<-3.8&&z>-1.9&&z<.2)return true;
   if(!S.gate&&x<-14.8)return true;
   for(const c of colliders)if(x+player.r>c.x0&&x-player.r<c.x1&&z+player.r>c.z0&&z-player.r<c.z1)return true;
   return false;
 }
+
 function move(dt){
   if(modalOpen)return;
   const v=new THREE.Vector3();
@@ -376,39 +434,52 @@ function move(dt){
     const d=new THREE.Vector3().addScaledVector(fwd,-v.z*player.speed*dt).addScaledVector(right,v.x*player.speed*dt);
     if(!blocked(player.pos.x+d.x,player.pos.z))player.pos.x+=d.x;
     if(!blocked(player.pos.x,player.pos.z+d.z))player.pos.z+=d.z;
-    player.step+=dt;if(player.step>.45){SFX.step();player.step=0}
-    player.walk+=dt*9;player.bobY=Math.sin(player.walk)*.035;
+    player.step+=dt;if(player.step>.42){SFX.step();player.step=0}
+    player.walk+=dt*10;player.bobY=Math.sin(player.walk)*.038;
     const roomNow=player.pos.x<-18.2?3:player.pos.x<-4.2?2:1;
-    if(roomNow!==S.room){S.room=roomNow;const r=ROOMS[roomNow-1];document.getElementById('rIcon').textContent=r.i;document.getElementById('rTitle').textContent=r.t;document.getElementById('rObj').textContent=r.o;notify('Entered '+r.t)}
-  } else player.bobY*=.85;
+    if(roomNow!==S.room){
+      S.room=roomNow;const r=ROOMS[roomNow-1];
+      document.getElementById('rIcon').textContent=r.i;document.getElementById('rTitle').textContent=r.t;document.getElementById('rObj').textContent=r.o;
+      notify('Entered '+r.t);
+    }
+  }else player.bobY*=.85;
   const sway=Math.sin(clock.elapsedTime*.6)*.004;
   camera.quaternion.setFromEuler(new THREE.Euler(player.pitch+sway,player.yaw+sway*1.3,0,'YXZ'));
   camera.position.copy(player.pos);camera.position.y+=player.bobY;
 }
+
 function crosshairUpdate(){
   ray.setFromCamera({x:0,y:0},camera);
   const hit=ray.intersectObjects(objs)[0];
   const c=document.getElementById('cross'),lbl=document.getElementById('hoverLabel');
-  if(hovered){hovered.material.emissive.setHex(hovered.userData.em);hovered=null}
+  if(hovered){if(hovered.material.emissive)hovered.material.emissive.setHex(hovered.userData.em);hovered=null}
   if(hit&&hit.distance<=hit.object.userData.dist){
-    hovered=hit.object;c.classList.add('on');hovered.material.emissive.setHex(0x22d3ee);
+    hovered=hit.object;c.classList.add('on');
+    if(hovered.material.emissive)hovered.material.emissive.setHex(0x34d399);
     if(lbl){lbl.textContent=hovered.userData.name;lbl.style.opacity=1}
-  } else {c.classList.remove('on');if(lbl)lbl.style.opacity=0}
+  }else{c.classList.remove('on');if(lbl)lbl.style.opacity=0}
 }
 function interact(){if(hovered)hovered.userData.fn()}
+
 function animate(){
   requestAnimationFrame(animate);
   const dt=Math.min(clock.getDelta(),.1),t=clock.elapsedTime;
   move(dt);crosshairUpdate();
-  if(animate.l1)animate.l1.intensity=1.3+Math.sin(t*3)*.1;
-  if(animate.l2)animate.l2.intensity=1.5+Math.sin(t*4+1)*.15;
+  if(animate.l1)animate.l1.intensity=1.5+Math.sin(t*3.5)*.12;
+  if(animate.l2)animate.l2.intensity=1.6+Math.sin(t*4.2+1)*.15;
   if(animate.torch)animate.torch.intensity=1+Math.sin(t*17)*.06+Math.sin(t*3.3)*.04;
-  keyMesh.rotation.y+=dt*.6;keyMesh.position.y=1.4+Math.sin(t*2.2)*.06;
+  if(keyMesh){keyMesh.rotation.y+=dt*.8;keyMesh.position.y=1.5+Math.sin(t*3)*.05}
+  if(pendulumMesh)pendulumMesh.rotation.z=Math.sin(t*2.5)*.25;
   if(animate.orrery){animate.orrery.rotation.y+=dt*.3;animate.ring1.rotation.z+=dt*.25;animate.ring2.rotation.x+=dt*.2}
   renderer.render(scene,camera);
 }
-addEventListener('load',function(){drawInv();init();
-  document.getElementById('startBtn').onclick=function(){tone(1,1,.001,'sine',.0001);startDrone();document.getElementById('start').classList.add('hidden')};
+
+addEventListener('load',function(){
+  drawInv();init();
+  document.getElementById('startBtn').onclick=function(){
+    tone(1,1,.001,'sine',.0001);startDrone();
+    document.getElementById('start').classList.add('hidden');
+  };
 });
 </script>
 </body>
