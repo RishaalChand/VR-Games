@@ -474,13 +474,28 @@ function animate(){
   renderer.render(scene,camera);
 }
 
-addEventListener('load',function(){
-  drawInv();init();
-  document.getElementById('startBtn').onclick=function(){
-    tone(1,1,.001,'sine',.0001);startDrone();
-    document.getElementById('start').classList.add('hidden');
-  };
-});
+// Bulletproof Startup Handler
+function bootGame() {
+  drawInv();
+  init();
+  const startBtn = document.getElementById('startBtn');
+  if (startBtn) {
+    startBtn.onclick = function() {
+      try {
+        tone(1, 1, 0.001, 'sine', 0.0001);
+        startDrone();
+      } catch(e) {}
+      const startScreen = document.getElementById('start');
+      if (startScreen) startScreen.classList.add('hidden');
+    };
+  }
+}
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  bootGame();
+} else {
+  window.addEventListener('DOMContentLoaded', bootGame);
+}
 </script>
 </body>
 </html>
